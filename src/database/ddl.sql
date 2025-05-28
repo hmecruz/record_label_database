@@ -30,17 +30,6 @@ CREATE TABLE Collaboration (
     )
 );
 
-CREATE TABLE Album (
-    AlbumID INT IDENTITY(1,1) PRIMARY KEY,
-    Title VARCHAR(255) NOT NULL,
-    ReleaseDate DATE
-);
-
-CREATE TABLE Band (
-    BandGroupID INT IDENTITY(1,1) PRIMARY KEY,
-    Name VARCHAR(255) NOT NULL UNIQUE
-);
-
 CREATE TABLE Person (
     NIF VARCHAR(20) PRIMARY KEY, 
     Name VARCHAR(255) NOT NULL,
@@ -115,14 +104,6 @@ CREATE TABLE Contributor_Song (
     FOREIGN KEY (Song_SongID) REFERENCES Song(SongID) ON DELETE CASCADE ON UPDATE CASCADE
 );
 
-CREATE TABLE Album_Song (
-    Album_AlbumID INT NOT NULL,
-    Song_SongID INT NOT NULL,
-    PRIMARY KEY (Album_AlbumID, Song_SongID),
-    FOREIGN KEY (Album_AlbumID) REFERENCES Album(AlbumID) ON DELETE CASCADE ON UPDATE CASCADE,
-    FOREIGN KEY (Song_SongID) REFERENCES Song(SongID) ON DELETE CASCADE ON UPDATE CASCADE
-);
-
 CREATE TABLE Song_Genre (
     Song_SongID INT NOT NULL,
     Genre VARCHAR(50) NOT NULL,
@@ -135,19 +116,4 @@ CREATE TABLE Artist_Genre (
     Genre VARCHAR(50) NOT NULL,
     PRIMARY KEY (Artist_ContributorID, Genre),
     FOREIGN KEY (Artist_ContributorID) REFERENCES Artist(Contributor_ContributorID) ON DELETE CASCADE ON UPDATE CASCADE
-);
-
-CREATE TABLE Band_Artist (
-    Band_BandGroupID INT NOT NULL,
-    Artist_ContributorID INT NOT NULL,
-    PRIMARY KEY (Band_BandGroupID, Artist_ContributorID),
-    FOREIGN KEY (Band_BandGroupID) REFERENCES Band(BandGroupID) ON DELETE CASCADE ON UPDATE CASCADE,
-    FOREIGN KEY (Artist_ContributorID) REFERENCES Artist(Contributor_ContributorID) ON DELETE NO ACTION ON UPDATE CASCADE
-);
-
-CREATE TABLE Band_Genre (
-    Band_BandGroupID INT NOT NULL,
-    Genre VARCHAR(50) NOT NULL,
-    PRIMARY KEY (Band_BandGroupID, Genre),
-    FOREIGN KEY (Band_BandGroupID) REFERENCES Band(BandGroupID) ON DELETE CASCADE ON UPDATE CASCADE
 );
