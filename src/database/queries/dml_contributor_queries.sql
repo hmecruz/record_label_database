@@ -58,10 +58,35 @@ WHERE NIF = '123456789';
 
 
 -- =========================
--- DELETE Queries
+-- DELETE Queries for Contributor
 -- =========================
 
--- Delete a contributor and cascade their roles (artist/songwriter/producer)
--- NOTE: Contributor_Song and other associations must be handled by ON DELETE or manually first if needed
+BEGIN TRANSACTION;
+
+DECLARE @ContributorID INT = 1;  -- Replace with the actual ContributorID to delete
+
+-- First, delete from Contributor_Song association (if NOT handled by ON DELETE CASCADE)
+DELETE FROM Contributor_Song
+WHERE Contributor_ContributorID = @ContributorID;
+
+-- Delete from Collaboration_Contributor association (if NOT handled by ON DELETE CASCADE)
+DELETE FROM Collaboration_Contributor
+WHERE Contributor_ContributorID = @ContributorID;
+
+-- Delete Artist role (if exists)
+DELETE FROM Artist
+WHERE Contributor_ContributorID = @ContributorID;
+
+-- Delete Songwriter role (if exists)
+DELETE FROM Songwriter
+WHERE Contributor_ContributorID = @ContributorID;
+
+-- Delete Producer role (if exists)
+DELETE FROM Producer
+WHERE Contributor_ContributorID = @ContributorID;
+
+-- Finally, delete the Contributor itself
 DELETE FROM Contributor
-WHERE ContributorID = 1;
+WHERE ContributorID = @ContributorID;
+
+COMMIT TRANSACTION;
