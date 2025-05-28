@@ -65,9 +65,37 @@ WHERE SongID = 1;
 
 
 -- =========================
--- DELETE Query
+-- DELETE Queries for SONG
 -- =========================
 
--- Delete a song by SongID
+BEGIN TRANSACTION;
+
+DECLARE @SongID INT = 1;  -- ← replace with the SongID you want to delete
+
+-- 1) Find all collaborations that reference this song
+DECLARE @CollabIDs TABLE (CollaborationID INT);
+INSERT INTO @CollabIDs (CollaborationID)
+SELECT CollaborationID
+FROM Collaboration
+WHERE Song_SongID = @SongID;
+
+-- 2) Delete any RecordLabel_Collaboration rows for those collaborations
+DELETE rl
+FROM RecordLabel_Collaboration rl
+JOIN @CollabIDs c ON rl.Collaboration_CollaborationID = c.CollaborationID;
+
+-- 3) Delete any Collaboration_Contributor rows for those collaborations
+DELETE cc
+FROM Collaboration_Contributor cc
+JOIN @CollabIDs c ON cc.Collaboration_CollaborationID = c.CollaborationID;
+
+-- 4) Delete the collaborations themselves
+DELETE col
+FROM Collaboration col
+JOIN @CollabIDs c ON col.CollaborationID = c.CollaborationID;
+
+-- 5) Delete the song (this will CASCADE to Contributor_Song and Song_Genre)
 DELETE FROM Song
-WHERE SongID = 1;
+WHERE SongID = @SongID;
+
+COMMIT TRANSACTION;
