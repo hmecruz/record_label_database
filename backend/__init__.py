@@ -13,8 +13,8 @@ logger = get_logger(__name__)
 def create_app():
     app = Flask(
         __name__,
-        static_folder='../frontend',          # Static files: CSS, JS
-        template_folder='../frontend'         # HTML files
+        static_folder='../frontend/static',      # point to static folder
+        template_folder='../frontend/templates'  # point to templates folder
     )
 
     # Load and validate configuration from environment variables into Flask config
