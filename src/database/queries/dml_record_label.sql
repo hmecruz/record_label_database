@@ -18,23 +18,28 @@ SELECT rl.RecordLabelID, rl.Name AS LabelName,
 FROM RecordLabel rl
 JOIN RecordLabel_Collaboration rlc ON rl.RecordLabelID = rlc.RecordLabel_RecordLabelID1
 JOIN Collaboration c ON rlc.Collaboration_CollaborationID = c.CollaborationID
+
 UNION
+
 SELECT rl.RecordLabelID, rl.Name AS LabelName,
        c.CollaborationID, c.CollaborationName, c.StartDate, c.EndDate
 FROM RecordLabel rl
 JOIN RecordLabel_Collaboration rlc ON rl.RecordLabelID = rlc.RecordLabel_RecordLabelID2
 JOIN Collaboration c ON rlc.Collaboration_CollaborationID = c.CollaborationID
+
 ORDER BY RecordLabelID, CollaborationID;
 
--- ===== INSERT Queries =====
+-- 3. Find all record labels with no collaborations
+SELECT rl.RecordLabelID, rl.Name
+FROM RecordLabel rl
+LEFT JOIN RecordLabel_Collaboration rlc1 ON rl.RecordLabelID = rlc1.RecordLabel_RecordLabelID1
+LEFT JOIN RecordLabel_Collaboration rlc2 ON rl.RecordLabelID = rlc2.RecordLabel_RecordLabelID2
+WHERE rlc1.RecordLabel_RecordLabelID1 IS NULL AND rlc2.RecordLabel_RecordLabelID2 IS NULL;
 
--- Insert a new Record Label
-INSERT INTO RecordLabel (Name, Location, Website, Email, PhoneNumber)
-VALUES ('New Label Name', 'New Location', 'https://newlabelwebsite.com', 'contact@newlabel.com', '123-456-7890');
 
 -- ===== UPDATE Queries =====
 
--- 3. Update label contact info
+-- Update label contact info
 UPDATE RecordLabel
 SET Location = 'New Location',
     Website = 'https://newwebsite.com',
@@ -44,20 +49,17 @@ WHERE RecordLabelID = 1;
 
 -- ===== DELETE Queries with Referential Integrity Considerations =====
 
--- 4. Delete a record label (useful for test/demo data)
--- Related Employee rows have ON DELETE NO ACTION -> must delete employees first or update to handle cascade
--- Related RecordLabel_Collaboration rows have ON DELETE CASCADE on RecordLabel_RecordLabelID1 only,
--- so deletion may fail if related to RecordLabel_RecordLabelID2. Must delete related rows manually.
+-- Delete a record label (for test/demo purposes only)
 
--- Delete employees related to the label first (because ON DELETE NO ACTION)
+-- Step 1: Delete employees linked to this label (ON DELETE NO ACTION)
 DELETE FROM Employee
 WHERE RecordLabel_RecordLabelID = 1;
 
--- Delete RecordLabel_Collaboration associations where the label is either RecordLabel_RecordLabelID1 or RecordLabel_RecordLabelID2
+-- Step 2: Delete RecordLabel_Collaboration associations
 DELETE FROM RecordLabel_Collaboration
 WHERE RecordLabel_RecordLabelID1 = 1
    OR RecordLabel_RecordLabelID2 = 1;
 
--- Finally delete the record label itself
+-- Step 3: Delete the record label itself
 DELETE FROM RecordLabel
 WHERE RecordLabelID = 1;
