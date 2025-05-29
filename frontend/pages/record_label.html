@@ -1,0 +1,84 @@
+<h2>Record Labels</h2>
+
+<!-- 1.1 Label List & Filter -->
+<section id="label-list-section">
+  <h3>All Labels</h3>
+
+  <div class="filter-row">
+    <label>
+      Name:
+      <input type="text" id="filter-name" placeholder="Filter by name"/>
+    </label>
+    <label>
+      Location:
+      <input type="text" id="filter-location" placeholder="Filter by location"/>
+    </label>
+    <label>
+      Email:
+      <input type="text" id="filter-email" placeholder="Filter by email"/>
+    </label>
+    <button id="apply-filters">Apply Filters</button>
+    <button id="clear-filters">Clear</button>
+  </div>
+
+  <table id="label-list-table">
+    <thead>
+      <tr>
+        <th>ID</th><th>Name</th><th>Location</th><th>Email</th><th>Phone</th><th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <!-- Filled by JS -->
+    </tbody>
+  </table>
+</section>
+
+<hr/>
+
+<!-- 1.2 Label Details -->
+<section id="label-details-section" class="hidden">
+  <h3>Label Details</h3>
+  <div id="label-details">
+    <!-- Filled by JS -->
+  </div>
+  <button id="edit-label">Edit</button>
+  <button id="delete-label">Delete</button>
+
+  <!-- Edit Form (initially hidden) -->
+  <form id="edit-label-form" class="hidden">
+    <label>Name: <input type="text" id="edit-name" disabled/></label><br/>
+    <label>Location: <input type="text" id="edit-location"/></label><br/>
+    <label>Website: <input type="text" id="edit-website"/></label><br/>
+    <label>Email: <input type="text" id="edit-email"/></label><br/>
+    <label>Phone: <input type="text" id="edit-phone"/></label><br/>
+    <button type="submit">Save</button>
+    <button type="button" id="cancel-edit">Cancel</button>
+  </form>
+
+  <h4>Employees</h4>
+  <table id="label-employees-table">
+    <thead><tr><th>ID</th><th>Name</th><th>Job Title</th><th>Department</th><th>Hire Date</th></tr></thead>
+    <tbody><!-- by JS --></tbody>
+  </table>
+
+  <h4>Collaborations</h4>
+  <table id="label-collabs-table">
+    <thead><tr><th>ID</th><th>Name</th><th>Start</th><th>End</th></tr></thead>
+    <tbody><!-- by JS --></tbody>
+  </table>
+</section>
+
+<hr/>
+
+<!-- 1.3 Add New Label -->
+<section id="add-label-section">
+  <h3>Add New Label</h3>
+  <form id="add-label-form">
+    <label>Name: <input type="text" id="new-name" required/></label><br/>
+    <label>Location: <input type="text" id="new-location"/></label><br/>
+    <label>Website: <input type="text" id="new-website"/></label><br/>
+    <label>Email: <input type="email" id="new-email"/></label><br/>
+    <label>Phone: <input type="text" id="new-phone"/></label><br/>
+    <button type="submit">Create Label</button>
+  </form>
+</section>
