@@ -1,0 +1,84 @@
+<!-- frontend/templates/pages/song.html -->
+
+<div class="page-header">
+  <h2>Songs</h2>
+  <button id="add-song-btn" class="btn-primary">+ Add Song</button>
+</div>
+
+<!-- 3.1 Song List -->
+<section id="song-list-section">
+  <h3>All Songs</h3>
+  <div class="filter-row">
+    <input type="text"    id="filter-title"         placeholder="Filter by Title…" />
+    <input type="number"  id="filter-duration"      placeholder="Filter by Duration (sec)…" />
+    <input type="date"    id="filter-release"       placeholder="Filter by Release Date…" />
+    <input type="text"    id="filter-genre"         placeholder="Filter by Genre…" />
+    <input type="text"    id="filter-contributor"   placeholder="Filter by Contributor…" />
+    <input type="text"    id="filter-collaboration" placeholder="Filter by Collaboration…" />
+  </div>
+  <table id="song-list-table" class="data-table">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Title</th>
+        <th>Duration</th>
+        <th>Release Date</th>
+        <th>Genres</th>
+        <th>Contributors</th>
+        <th>Collaboration</th>
+      </tr>
+    </thead>
+    <tbody><!-- populated by JS --></tbody>
+  </table>
+</section>
+
+<!-- 3.3 Song Details/Edit/Delete -->
+<section id="song-details-section" class="hidden">
+  <h3>Song Details</h3>
+  <div id="song-details"><!-- populated --></div>
+  <div class="detail-actions">
+    <button id="edit-song-btn"       class="btn-secondary">Edit</button>
+    <button id="delete-song-btn"     class="btn-danger">Delete</button>
+    <button id="back-song-list-btn"  class="btn-light">Back to List</button>
+  </div>
+</section>
+
+<!-- Add/Edit Modal -->
+<div id="song-form-modal" class="modal hidden">
+  <div class="modal-content">
+    <h3 id="song-modal-title">Add Song</h3>
+    <form id="song-form">
+      <input type="hidden" name="SongID" />
+
+      <label>
+        Title:
+        <input type="text" name="Title" required />
+      </label>
+      <label>
+        Duration (sec):
+        <input type="number" name="Duration" min="0" required />
+      </label>
+      <label>
+        Release Date:
+        <input type="date" name="ReleaseDate" required />
+      </label>
+      <label>
+        Genres (comma-separated):
+        <input type="text" name="Genres" />
+      </label>
+      <label>
+        Contributors (comma-separated):
+        <input type="text" name="Contributors" />
+      </label>
+      <label>
+        Collaboration:
+        <input type="text" name="CollaborationName" />
+      </label>
+
+      <div class="form-actions">
+        <button type="submit" class="btn-primary">Save</button>
+        <button type="button" id="song-cancel-btn" class="btn-light">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
