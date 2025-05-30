@@ -1,184 +1,179 @@
 // frontend/static/js/song.js
+// Load as an ES module: <script type="module" src="/static/js/song.js"></script>
 
-function songInit() {
-  console.log("[songInit] start");
+import {
+  listSongs,
+  getSong,
+  createSong,
+  updateSong,
+  deleteSong
+} from './endpoints/song_api.js';
 
-  const listSection     = document.getElementById("song-list-section");
-  const detailsSection  = document.getElementById("song-details-section");
-  const modal           = document.getElementById("song-form-modal");
-  const form            = document.getElementById("song-form");
-  const addBtn          = document.getElementById("add-song-btn");
-  const cancelBtn       = document.getElementById("song-cancel-btn");
+function debounce(fn, delay = 300) {
+  let timer;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), delay);
+  };
+}
 
-  // Initial visibility
-  listSection.classList.remove("hidden");
-  detailsSection.classList.add("hidden");
-  modal.classList.add("hidden");
+async function songInit() {
+  console.log('[songInit] start');
 
-  // Sample song data
-  let songs = [
-    {
-      SongID: 1,
-      Title: "Hit Record",
-      Duration: 210,
-      ReleaseDate: "2021-05-20",
-      Genres: ["Pop", "Dance"],
-      Contributors: ["Alice Jones", "Bob Smith"],
-      CollaborationName: "Summer Jam"
-    },
-    {
-      SongID: 2,
-      Title: "Deep Melody",
-      Duration: 185,
-      ReleaseDate: "2020-11-10",
-      Genres: ["R&B"],
-      Contributors: ["Carol White"],
-      CollaborationName: "Soul Sessions"
-    }
-  ];
+  // Sections & controls
+  const listSection    = document.getElementById('song-list-section');
+  const detailsSection = document.getElementById('song-details-section');
+  const modal          = document.getElementById('song-form-modal');
+  const form           = document.getElementById('song-form');
+  const addBtn         = document.getElementById('add-song-btn');
+  const cancelBtn      = document.getElementById('song-cancel-btn');
 
-  // Render the song list
+  // Filter inputs
+  const filters = {
+    title:         document.getElementById('filter-title'),
+    minDuration:   document.getElementById('filter-duration'),
+    releaseDate:   document.getElementById('filter-release'),
+    genre:         document.getElementById('filter-genre'),
+    contributor:   document.getElementById('filter-contributor'),
+    collaboration: document.getElementById('filter-collaboration')
+  };
+
+  // State
+  let songs = [];
+
+  // Render table rows
   function renderTable(data) {
-    console.log("[renderTable] songs:", data.length);
-    const tbody = document.querySelector("#song-list-table tbody");
+    const tbody = document.querySelector('#song-list-table tbody');
     tbody.innerHTML = data.map(s => `
       <tr data-id="${s.SongID}">
         <td>${s.SongID}</td>
         <td>${s.Title}</td>
         <td>${s.Duration}</td>
         <td>${s.ReleaseDate}</td>
-        <td>${s.Genres.join(", ")}</td>
-        <td>${s.Contributors.join(", ")}</td>
-        <td>${s.CollaborationName || ""}</td>
+        <td>${s.Genres}</td>
+        <td>${s.Contributors}</td>
+        <td>${s.CollaborationName || ''}</td>
       </tr>
-    `).join("");
-    document.querySelectorAll("#song-list-table tbody tr").forEach(row => {
-      row.onclick = () => showDetails(+row.dataset.id);
-    });
+    `).join('');
+    document.querySelectorAll('#song-list-table tbody tr')
+      .forEach(row => row.onclick = () => showDetails(+row.dataset.id));
   }
 
-  // Filters: title, duration, release, genre, contributor, collaboration
-  [
-    { key: "title",         field: s => s.Title },
-    { key: "duration",      field: s => String(s.Duration) },
-    { key: "release",       field: s => s.ReleaseDate },
-    { key: "genre",         field: s => s.Genres.join(" ") },
-    { key: "contributor",   field: s => s.Contributors.join(" ") },
-    { key: "collaboration", field: s => s.CollaborationName }
-  ].forEach(({key, field}) => {
-    const input = document.getElementById(`filter-${key}`);
-    if (!input) return;
-    input.oninput = e => {
-      const term = e.target.value.toLowerCase();
-      console.log("[filter]", key, term);
-      renderTable(songs.filter(s => field(s).toLowerCase().includes(term)));
-    };
-  });
+  // Fetch from server with current filters
+  let fetchId = 0;
+  async function fetchAndRender() {
+    const myFetch = ++fetchId;
+    const params = {};
+    if (filters.title.value)         params.title = filters.title.value;
+    if (filters.minDuration.value)   params.minDuration = filters.minDuration.value;
+    if (filters.releaseDate.value)   params.releaseDate = filters.releaseDate.value;
+    if (filters.genre.value)         params.genre = filters.genre.value;
+    if (filters.contributor.value)   params.contributor = filters.contributor.value;
+    if (filters.collaboration.value) params.collaboration = filters.collaboration.value;
 
-  // Show song details
-  function showDetails(id) {
-    const s = songs.find(x => x.SongID === id);
-    if (!s) return;
-    console.log("[showDetails]", s);
+    try {
+      const data = await listSongs(params);
+      if (myFetch !== fetchId) return; // stale
+      songs = data;
+      renderTable(songs);
+    } catch (err) {
+      console.error('[API] listSongs failed', err);
+      alert('Failed to load songs.');
+    }
+  }
 
-    listSection.classList.add("hidden");
-    detailsSection.classList.remove("hidden");
-    modal.classList.add("hidden");
+  // Show details view
+  async function showDetails(id) {
+    listSection.classList.add('hidden');
+    detailsSection.classList.remove('hidden');
+    modal.classList.add('hidden');
 
-    document.getElementById("song-details").innerHTML = `
+    let s;
+    try {
+      s = await getSong(id);
+    } catch (err) {
+      console.error('[API] getSong failed', err);
+      alert('Failed to load song details.');
+      return;
+    }
+
+    document.getElementById('song-details').innerHTML = `
       <p><strong>ID:</strong> ${s.SongID}</p>
       <p><strong>Title:</strong> ${s.Title}</p>
       <p><strong>Duration:</strong> ${s.Duration} sec</p>
       <p><strong>Release Date:</strong> ${s.ReleaseDate}</p>
-      <p><strong>Genres:</strong> ${s.Genres.join(", ")}</p>
-      <p><strong>Contributors:</strong> ${s.Contributors.join(", ")}</p>
-      <p><strong>Collaboration:</strong> ${s.CollaborationName || "-"}</p>
+      <p><strong>Genres:</strong> ${s.Genres || '-'}</p>
+      <p><strong>Contributors:</strong> ${s.Contributors || '-'}</p>
+      <p><strong>Collaboration:</strong> ${s.CollaborationName || '-'}</p>
     `;
 
-    document.getElementById("edit-song-btn").onclick = () => openForm("Edit Song", s);
-    document.getElementById("delete-song-btn").onclick = () => {
-      console.log("[deleteSong]", s.SongID);
-      if (confirm(`Delete song "${s.Title}"? This will remove genres, contributions, etc.`)) {
-        songs = songs.filter(x => x.SongID !== id);
+    document.getElementById('edit-song-btn').onclick = () => openForm('Edit Song', s);
+    document.getElementById('delete-song-btn').onclick = async () => {
+      if (!confirm(`Delete song "${s.Title}"?`)) return;
+      try {
+        await deleteSong(s.SongID);
+        await fetchAndRender();
         backToList();
+      } catch (err) {
+        console.error('[API] deleteSong failed', err);
+        alert('Failed to delete song.');
       }
     };
-    document.getElementById("back-song-list-btn").onclick = backToList;
+    document.getElementById('back-song-list-btn').onclick = backToList;
   }
 
-  // Back to list view
   function backToList() {
-    console.log("[backToList]");
-    detailsSection.classList.add("hidden");
-    listSection.classList.remove("hidden");
-    modal.classList.add("hidden");
+    detailsSection.classList.add('hidden');
+    listSection.classList.remove('hidden');
+    modal.classList.add('hidden');
     renderTable(songs);
   }
 
   // Open Add/Edit form
-  function openForm(title, s = null) {
-    console.log("[openForm]", title, s);
-    document.getElementById("song-modal-title").textContent = title;
+  function openForm(title, s = {}) {
+    document.getElementById('song-modal-title').textContent = title;
     form.reset();
-    form.elements["SongID"].value = s ? s.SongID : "";
-    form.elements["Title"].value = s ? s.Title : "";
-    form.elements["Duration"].value = s ? s.Duration : "";
-    form.elements["ReleaseDate"].value = s ? s.ReleaseDate : "";
-    form.elements["Genres"].value = s ? s.Genres.join(", ") : "";
-    form.elements["Contributors"].value = s ? s.Contributors.join(", ") : "";
-    form.elements["CollaborationName"].value = s ? s.CollaborationName : "";
-    modal.classList.remove("hidden");
+    form.elements['SongID'].value              = s.SongID || '';
+    form.elements['Title'].value               = s.Title || '';
+    form.elements['Duration'].value            = s.Duration || '';
+    form.elements['ReleaseDate'].value         = s.ReleaseDate || '';
+    form.elements['Genres'].value              = s.Genres || '';
+    form.elements['Contributors'].value        = s.Contributors || '';
+    form.elements['CollaborationName'].value   = s.CollaborationName || '';
+    modal.classList.remove('hidden');
   }
 
   // Add new song
-  document.getElementById("add-song-btn").onclick = e => {
-    e.preventDefault();
-    openForm("Add Song");
-  };
+  addBtn.onclick = e => { e.preventDefault(); openForm('Add Song'); };
+  cancelBtn.onclick = e => { e.preventDefault(); modal.classList.add('hidden'); };
 
-  // Cancel form
-  cancelBtn.onclick = e => {
+  // Form submit → create/update
+  form.onsubmit = async e => {
     e.preventDefault();
-    console.log("[cancelSong]");
-    modal.classList.add("hidden");
-  };
-
-  // Form submit
-  form.onsubmit = e => {
-    e.preventDefault();
-    const fd = new FormData(form), obj = {};
-    fd.forEach((v, k) => obj[k] = v);
-    console.log("[submitSong]", obj);
-    if (obj.SongID) {
-      songs = songs.map(x => x.SongID == obj.SongID ? {
-        ...x,
-        Title: obj.Title,
-        Duration: +obj.Duration,
-        ReleaseDate: obj.ReleaseDate,
-        Genres: obj.Genres.split(",").map(s => s.trim()).filter(Boolean),
-        Contributors: obj.Contributors.split(",").map(s => s.trim()).filter(Boolean),
-        CollaborationName: obj.CollaborationName
-      } : x);
-    } else {
-      obj.SongID = Math.max(0, ...songs.map(x => x.SongID)) + 1;
-      songs.push({
-        SongID: obj.SongID,
-        Title: obj.Title,
-        Duration: +obj.Duration,
-        ReleaseDate: obj.ReleaseDate,
-        Genres: obj.Genres.split(",").map(s => s.trim()).filter(Boolean),
-        Contributors: obj.Contributors.split(",").map(s => s.trim()).filter(Boolean),
-        CollaborationName: obj.CollaborationName
-      });
+    const data = Object.fromEntries(new FormData(form));
+    try {
+      if (data.SongID) {
+        await updateSong(data.SongID, data);
+      } else {
+        await createSong(data);
+      }
+      modal.classList.add('hidden');
+      await fetchAndRender();
+      backToList();
+    } catch (err) {
+      console.error('[API] save song failed', err);
+      alert('Failed to save song.');
     }
-    modal.classList.add("hidden");
-    backToList();
   };
 
-  // Initial render
-  renderTable(songs);
-  console.log("[songInit] done");
+  // Wire filters
+  const deb = debounce(fetchAndRender, 300);
+  Object.values(filters).forEach(inp => { if (inp) inp.oninput = deb; });
+
+  // Initial load
+  await fetchAndRender();
+  console.log('[songInit] done');
 }
 
-// Expose for loader
+// Expose for your main loader
 window.songInit = songInit;
