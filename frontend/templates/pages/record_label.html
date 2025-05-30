@@ -1,84 +1,78 @@
-<h2>Record Labels</h2>
+<!-- frontend/templates/pages/record_label.html -->
 
-<!-- 1.1 Label List & Filter -->
+<div class="page-header">
+  <h2>Record Labels</h2>
+  <button id="add-label-btn" class="btn-primary">+ Add New Label</button>
+</div>
+
+<!-- 1.1 Label List -->
 <section id="label-list-section">
   <h3>All Labels</h3>
-
   <div class="filter-row">
-    <label>
-      Name:
-      <input type="text" id="filter-name" placeholder="Filter by name"/>
-    </label>
-    <label>
-      Location:
-      <input type="text" id="filter-location" placeholder="Filter by location"/>
-    </label>
-    <label>
-      Email:
-      <input type="text" id="filter-email" placeholder="Filter by email"/>
-    </label>
-    <button id="apply-filters">Apply Filters</button>
-    <button id="clear-filters">Clear</button>
+    <input type="text" id="filter-name" placeholder="Filter by Name…" />
+    <input type="text" id="filter-location" placeholder="Filter by Location…" />
+    <input type="text" id="filter-website" placeholder="Filter by Website…" />
+    <input type="text" id="filter-email" placeholder="Filter by Email…" />
   </div>
-
   <table id="label-list-table">
     <thead>
       <tr>
-        <th>ID</th><th>Name</th><th>Location</th><th>Email</th><th>Phone</th><th>Actions</th>
+        <th data-key="RecordLabelID">ID</th>
+        <th data-key="Name">Name</th>
+        <th data-key="Location">Location</th>
+        <th data-key="Website">Website</th>
+        <th data-key="Email">Email</th>
+        <th data-key="PhoneNumber">Phone</th>
       </tr>
     </thead>
     <tbody>
-      <!-- Filled by JS -->
+      <!-- populated by JS -->
     </tbody>
   </table>
 </section>
-
-<hr/>
 
 <!-- 1.2 Label Details -->
 <section id="label-details-section" class="hidden">
   <h3>Label Details</h3>
   <div id="label-details">
-    <!-- Filled by JS -->
+    <!-- populated by JS: full contact info -->
   </div>
-  <button id="edit-label">Edit</button>
-  <button id="delete-label">Delete</button>
-
-  <!-- Edit Form (initially hidden) -->
-  <form id="edit-label-form" class="hidden">
-    <label>Name: <input type="text" id="edit-name" disabled/></label><br/>
-    <label>Location: <input type="text" id="edit-location"/></label><br/>
-    <label>Website: <input type="text" id="edit-website"/></label><br/>
-    <label>Email: <input type="text" id="edit-email"/></label><br/>
-    <label>Phone: <input type="text" id="edit-phone"/></label><br/>
-    <button type="submit">Save</button>
-    <button type="button" id="cancel-edit">Cancel</button>
-  </form>
-
-  <h4>Employees</h4>
-  <table id="label-employees-table">
-    <thead><tr><th>ID</th><th>Name</th><th>Job Title</th><th>Department</th><th>Hire Date</th></tr></thead>
-    <tbody><!-- by JS --></tbody>
-  </table>
-
-  <h4>Collaborations</h4>
-  <table id="label-collabs-table">
-    <thead><tr><th>ID</th><th>Name</th><th>Start</th><th>End</th></tr></thead>
-    <tbody><!-- by JS --></tbody>
-  </table>
+  <div class="detail-actions">
+    <button id="edit-label-btn" class="btn-secondary">Edit</button>
+    <button id="delete-label-btn" class="btn-danger">Delete</button>
+    <button id="back-to-list-btn" class="btn-light">Back to List</button>
+  </div>
 </section>
 
-<hr/>
-
-<!-- 1.3 Add New Label -->
-<section id="add-label-section">
-  <h3>Add New Label</h3>
-  <form id="add-label-form">
-    <label>Name: <input type="text" id="new-name" required/></label><br/>
-    <label>Location: <input type="text" id="new-location"/></label><br/>
-    <label>Website: <input type="text" id="new-website"/></label><br/>
-    <label>Email: <input type="email" id="new-email"/></label><br/>
-    <label>Phone: <input type="text" id="new-phone"/></label><br/>
-    <button type="submit">Create Label</button>
-  </form>
-</section>
+<!-- 1.3 Add / Edit Modal -->
+<div id="label-form-modal" class="modal hidden">
+  <div class="modal-content">
+    <h3 id="modal-title">Add New Label</h3>
+    <form id="label-form">
+      <label>
+        Name:
+        <input type="text" name="Name" required />
+      </label>
+      <label>
+        Location:
+        <input type="text" name="Location" />
+      </label>
+      <label>
+        Website:
+        <input type="url" name="Website" />
+      </label>
+      <label>
+        Email:
+        <input type="email" name="Email" required />
+      </label>
+      <label>
+        Phone:
+        <input type="tel" name="PhoneNumber" />
+      </label>
+      <div class="form-actions">
+        <button type="submit" class="btn-primary">Save</button>
+        <button type="button" id="cancel-form-btn" class="btn-light">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
