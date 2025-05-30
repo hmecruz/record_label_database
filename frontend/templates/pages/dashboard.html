@@ -1,37 +1,30 @@
-<h2>Welcome to the Music Label Dashboard</h2>
-<p>This dashboard gives an overview of the record label data.</p>
+<!-- frontend/templates/pages/dashboard.html -->
+<div class="dashboard-welcome">
+  <h2>Welcome to the Music Label Dashboard</h2>
+  <p>This dashboard gives an overview of the record label data.</p>
+</div>
 
-<section id="label-summary">
-  <h3>Label Summary</h3>
-  <table id="label-summary-table">
-    <thead>
-      <tr>
-        <th>Label Name</th>
-        <th>Employees</th>
-        <th>Active Collaborations</th>
-      </tr>
-    </thead>
-    <tbody>
-      <!-- filled by JS -->
-    </tbody>
-  </table>
+<section class="dashboard-overview">
+  <div class="cards-container">
+    <a href="#" class="card" data-page="record_label">
+      <h3 id="card-labels">Record Labels</h3>
+      <p id="count-record_label">0</p>
+    </a>
+    <a href="#" class="card" data-page="employee">
+      <h3 id="card-employees">Employees</h3>
+      <p id="count-employee">0</p>
+    </a>
+    <a href="#" class="card" data-page="song">
+      <h3 id="card-songs">Songs</h3>
+      <p id="count-song">0</p>
+    </a>
+    <a href="#" class="card" data-page="contributor">
+      <h3 id="card-contributors">Contributors</h3>
+      <p id="count-contributor">0</p>
+    </a>
+    <a href="#" class="card" data-page="collaboration">
+      <h3 id="card-collabs">Collaborations</h3>
+      <p id="count-collaboration">0</p>
+    </a>
+  </div>
 </section>
-
-<section id="top-contributors">
-  <h3>Top Contributors</h3>
-  <table id="top-contributors-table">
-    <thead>
-      <tr>
-        <th>Name</th>
-        <th>Roles</th>
-        <th># Songs</th>
-        <th># Collaborations</th>
-      </tr>
-    </thead>
-    <tbody>
-      <!-- filled by JS -->
-    </tbody>
-  </table>
-</section>
-
-<script src="js/dashboard.js"></script>

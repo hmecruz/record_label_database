@@ -26,6 +26,14 @@
     <div id="content">Loading...</div>
   </main>
 
+  <!-- first, the loader/navigation script -->
   <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+  <!-- then, any page init scripts -->
+  <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/record_label.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/employee.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/song.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/contributor.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/collaboration.js') }}"></script>
 </body>
 </html>
