@@ -41,8 +41,8 @@ CREATE OR ALTER PROCEDURE dbo.sp_CreateSong
     @Title             VARCHAR(255),
     @Duration          INT,
     @ReleaseDate       DATE,
-    @Genres            VARCHAR(MAX)   = NULL,  -- comma-separated
-    @Contributors      VARCHAR(MAX)   = NULL,  -- comma-separated NIFs
+    @Genres            VARCHAR(MAX)   = NULL,
+    @Contributors      VARCHAR(MAX)   = NULL,
     @CollaborationName VARCHAR(255)   = NULL,
     @NewID             INT            OUTPUT
 AS
@@ -50,61 +50,54 @@ BEGIN
     SET NOCOUNT ON;
     BEGIN TRANSACTION;
     BEGIN TRY
-        -- 1) Insert Song
         INSERT INTO dbo.Song (Title, Duration, ReleaseDate)
         VALUES (@Title, @Duration, @ReleaseDate);
         SET @NewID = SCOPE_IDENTITY();
 
-        -- 2) Insert Genres
+        -- Genres
         IF @Genres IS NOT NULL
         BEGIN
             DECLARE @g VARCHAR(50);
-            DECLARE curG CURSOR FOR 
-                SELECT LTRIM(RTRIM(value)) 
-                FROM STRING_SPLIT(@Genres, ',');
+            DECLARE curG CURSOR FOR SELECT LTRIM(RTRIM(value)) FROM STRING_SPLIT(@Genres, ',');
             OPEN curG;
             FETCH NEXT FROM curG INTO @g;
             WHILE @@FETCH_STATUS = 0
             BEGIN
-                INSERT INTO dbo.Song_Genre (Song_SongID, Genre)
-                VALUES (@NewID, @g);
+                INSERT INTO dbo.Song_Genre (Song_SongID, Genre) VALUES (@NewID, @g);
                 FETCH NEXT FROM curG INTO @g;
             END
             CLOSE curG; DEALLOCATE curG;
         END
 
-        -- 3) Link Contributors
+        -- Contributors
         IF @Contributors IS NOT NULL
         BEGIN
             DECLARE @nif VARCHAR(20);
-            DECLARE curC CURSOR FOR 
-                SELECT LTRIM(RTRIM(value)) 
-                FROM STRING_SPLIT(@Contributors, ',');
+            DECLARE curC CURSOR FOR SELECT LTRIM(RTRIM(value)) FROM STRING_SPLIT(@Contributors, ',');
             OPEN curC;
             FETCH NEXT FROM curC INTO @nif;
             WHILE @@FETCH_STATUS = 0
             BEGIN
                 INSERT INTO dbo.Contributor_Song (Contributor_ContributorID, Song_SongID, Date)
                 SELECT c.ContributorID, @NewID, GETDATE()
-                FROM dbo.Contributor c
-                WHERE c.Person_NIF = @nif;
+                FROM dbo.Contributor c WHERE c.Person_NIF = @nif;
                 FETCH NEXT FROM curC INTO @nif;
             END
             CLOSE curC; DEALLOCATE curC;
         END
 
-        -- 4) Create Collaboration record linking to this song
+        -- Collaboration
         IF @CollaborationName IS NOT NULL
         BEGIN
-            INSERT INTO dbo.Collaboration (CollaborationName, StartDate, Description, Song_SongID)
-            VALUES (@CollaborationName, GETDATE(), NULL, @NewID);
+            INSERT INTO dbo.Collaboration (CollaborationName, StartDate, Song_SongID)
+            VALUES (@CollaborationName, GETDATE(), @NewID);
         END
 
         COMMIT TRANSACTION;
     END TRY
     BEGIN CATCH
         ROLLBACK TRANSACTION;
-        RAISERROR('Error creating song: %s', 16, 1, ERROR_MESSAGE());
+        THROW;  -- rethrow the caught error
     END CATCH
 END
 GO
@@ -123,15 +116,11 @@ BEGIN
     SET NOCOUNT ON;
     BEGIN TRANSACTION;
     BEGIN TRY
-        -- Update base Song
         UPDATE dbo.Song
         SET Title = @Title, Duration = @Duration, ReleaseDate = @ReleaseDate
         WHERE SongID = @ID;
-
         IF @@ROWCOUNT = 0
-        BEGIN
-            ROLLBACK; RAISERROR('Song not found',16,1); RETURN;
-        END
+        BEGIN ROLLBACK; RAISERROR('Song not found',16,1); RETURN; END
 
         -- Refresh genres
         DELETE FROM dbo.Song_Genre WHERE Song_SongID = @ID;
@@ -139,7 +128,7 @@ BEGIN
             INSERT INTO dbo.Song_Genre (Song_SongID, Genre)
             SELECT @ID, LTRIM(RTRIM(value)) FROM STRING_SPLIT(@Genres, ',');
 
-        -- Refresh contributor links
+        -- Refresh contributors
         DELETE FROM dbo.Contributor_Song WHERE Song_SongID = @ID;
         IF @Contributors IS NOT NULL
             INSERT INTO dbo.Contributor_Song (Contributor_ContributorID, Song_SongID, Date)
@@ -147,7 +136,7 @@ BEGIN
             FROM STRING_SPLIT(@Contributors, ',') AS s
             JOIN dbo.Contributor c ON c.Person_NIF = LTRIM(RTRIM(s.value));
 
-        -- Update / create collaboration
+        -- Collaboration
         IF EXISTS (SELECT 1 FROM dbo.Collaboration WHERE Song_SongID = @ID)
             UPDATE dbo.Collaboration
             SET CollaborationName = @CollaborationName
@@ -156,11 +145,11 @@ BEGIN
             INSERT INTO dbo.Collaboration (CollaborationName, StartDate, Song_SongID)
             VALUES (@CollaborationName, GETDATE(), @ID);
 
-        COMMIT;
+        COMMIT TRANSACTION;
     END TRY
     BEGIN CATCH
-        ROLLBACK;
-        RAISERROR('Error updating song: %s',16,1,ERROR_MESSAGE());
+        ROLLBACK TRANSACTION;
+        THROW;
     END CATCH
 END
 GO
@@ -171,6 +160,7 @@ CREATE OR ALTER PROCEDURE dbo.sp_DeleteSong
 AS
 BEGIN
     SET NOCOUNT ON;
+
     DELETE FROM dbo.Song WHERE SongID = @ID;
     IF @@ROWCOUNT = 0
         RAISERROR('Song not found',16,1);
