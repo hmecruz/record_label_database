@@ -1,7 +1,9 @@
 // frontend/static/js/record_label.js
+// Load as an ES module: <script type="module" src="/static/js/record_label.js"></script>
 
 import {
   listLabels,
+  getLabel,
   createLabel,
   updateLabel,
   deleteLabel
@@ -36,7 +38,6 @@ async function record_labelInit() {
 
   // Render table helper
   function renderTable(data) {
-    console.log("[renderTable] rows:", data.length);
     const tbody = document.querySelector("#label-list-table tbody");
     tbody.innerHTML = data.map(l => `
       <tr data-id="${l.RecordLabelID}">
@@ -53,15 +54,29 @@ async function record_labelInit() {
     });
   }
 
+  // Debounce helper
+  function debounce(fn, delay = 300) {
+    let timer;
+    return (...args) => {
+      clearTimeout(timer);
+      timer = setTimeout(() => fn(...args), delay);
+    };
+  }
+
   // Fetch & render with current filter values
+  let currentFetchId = 0;
   async function fetchAndRender() {
+    const fetchId = ++currentFetchId;
     const params = {};
     for (let key in filters) {
       const val = filters[key].value.trim();
       if (val) params[key] = val;
     }
     try {
-      labels = await listLabels(params);
+      const data = await listLabels(params);      // ← HERE we call GET /api/record_labels?…
+      // ignore out-of-order responses
+      if (fetchId !== currentFetchId) return;
+      labels = data;
       renderTable(labels);
     } catch (err) {
       console.error("[API] fetch failed", err);
@@ -69,22 +84,27 @@ async function record_labelInit() {
     }
   }
 
-  // Attach filter handlers
+  // Attach debounced filter handlers
+  const debouncedFetch = debounce(fetchAndRender, 300);
   Object.values(filters).forEach(input => {
     if (!input) return;
-    input.oninput = () => {
-      // debounce if needed; for now call immediately
-      fetchAndRender();
-    };
+    input.oninput = debouncedFetch;
   });
 
-  // Show details
-  function showDetails(id) {
-    const label = labels.find(l => l.RecordLabelID === id);
-    if (!label) return;
+  // Show details (now fetching fresh data via getLabel)
+  async function showDetails(id) {
     listSection.classList.add("hidden");
     detailsSection.classList.remove("hidden");
     modal.classList.add("hidden");
+
+    let label;
+    try {
+      label = await getLabel(id);               // ← HERE we call GET /api/record_labels/{id}
+    } catch (err) {
+      console.error("[API] getLabel failed", err);
+      alert("Failed to load label details.");
+      return;
+    }
 
     document.getElementById("label-details").innerHTML = `
       <p><strong>ID:</strong> ${label.RecordLabelID}</p>
@@ -98,9 +118,9 @@ async function record_labelInit() {
 
     document.getElementById("edit-label-btn").onclick = () => openForm("Edit Label", label);
     document.getElementById("delete-label-btn").onclick = async () => {
-      if (!confirm(`Permanently remove "${label.Name}" and all related data?`)) return;
+      if (!confirm(`Permanently remove "${label.Name}"?`)) return;
       try {
-        await deleteLabel(label.RecordLabelID);
+        await deleteLabel(label.RecordLabelID);  // ← DELETE /api/record_labels/{id}
         await fetchAndRender();
         backToList();
       } catch (err) {
@@ -151,9 +171,9 @@ async function record_labelInit() {
     const isEdit = Boolean(obj.RecordLabelID);
     try {
       if (isEdit) {
-        await updateLabel(obj.RecordLabelID, obj);
+        await updateLabel(obj.RecordLabelID, obj); // ← PUT /api/record_labels/{id}
       } else {
-        await createLabel(obj);
+        await createLabel(obj);                    // ← POST /api/record_labels
       }
       modal.classList.add("hidden");
       await fetchAndRender();
