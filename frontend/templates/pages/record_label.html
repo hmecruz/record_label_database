@@ -13,6 +13,7 @@
     <input type="text" id="filter-location" placeholder="Filter by Location…" />
     <input type="text" id="filter-website" placeholder="Filter by Website…" />
     <input type="text" id="filter-email" placeholder="Filter by Email…" />
+    <input type="text" id="filter-phone" placeholder="Filter by Phone…" />
   </div>
   <table id="label-list-table">
     <thead>
@@ -49,6 +50,8 @@
   <div class="modal-content">
     <h3 id="modal-title">Add New Label</h3>
     <form id="label-form">
+      <!-- hidden ID field so edits carry the existing RecordLabelID -->
+      <input type="hidden" name="RecordLabelID" />
       <label>
         Name:
         <input type="text" name="Name" required />

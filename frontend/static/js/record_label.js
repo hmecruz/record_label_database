@@ -1,9 +1,9 @@
 // frontend/static/js/record_label.js
 
 function record_labelInit() {
-  console.log("record_labelInit running");
+  console.log("[record_labelInit] Init");
 
-  // Grab our elements
+  // Elements
   const listSection    = document.getElementById("label-list-section");
   const detailsSection = document.getElementById("label-details-section");
   const modal          = document.getElementById("label-form-modal");
@@ -11,12 +11,12 @@ function record_labelInit() {
   const addBtn         = document.getElementById("add-label-btn");
   const cancelBtn      = document.getElementById("cancel-form-btn");
 
-  // Ensure all sections start in the correct state
+  // Ensure initial state
   listSection.classList.remove("hidden");
   detailsSection.classList.add("hidden");
   modal.classList.add("hidden");
 
-  // Hardcoded sample data
+  // Sample data
   let labels = [
     { RecordLabelID: 1, Name: "Universal Music", Location: "Los Angeles", Website: "https://universal.com", Email: "contact@universal.com", PhoneNumber: "123-456-7890" },
     { RecordLabelID: 2, Name: "Sony Music",      Location: "New York",   Website: "https://sonymusic.com", Email: "info@sonymusic.com",    PhoneNumber: "234-567-8901" },
@@ -25,6 +25,7 @@ function record_labelInit() {
 
   // Render table helper
   function renderTable(data) {
+    console.log("[renderTable] rows:", data.length);
     const tbody = document.querySelector("#label-list-table tbody");
     tbody.innerHTML = data.map(l => `
       <tr data-id="${l.RecordLabelID}">
@@ -36,38 +37,41 @@ function record_labelInit() {
         <td>${l.PhoneNumber}</td>
       </tr>
     `).join("");
-
-    // Attach click to each row
     document.querySelectorAll("#label-list-table tbody tr").forEach(row => {
-      row.addEventListener("click", () => showDetails(+row.dataset.id));
+      row.onclick = () => {
+        console.log("[row] click id=", row.dataset.id);
+        showDetails(+row.dataset.id);
+      };
     });
   }
 
-  // Filtering
-  ["name", "location", "website", "email"].forEach(key => {
+  // Filters: name, location, website, email, phone
+  ["name","location","website","email","phone"].forEach(key => {
     const input = document.getElementById(`filter-${key}`);
-    if (!input) return;
-    input.addEventListener("input", e => {
+    if (!input) return console.warn("[filter] no input for", key);
+    input.oninput = e => {
       const term = e.target.value.toLowerCase();
+      console.log("[filter]", key, term);
       renderTable(
-        labels.filter(l =>
-          String(l[key.charAt(0).toUpperCase() + key.slice(1)])
-            .toLowerCase()
-            .includes(term)
-        )
+        labels.filter(l => {
+          const field = key === "phone" ? l.PhoneNumber : l[key.charAt(0).toUpperCase()+key.slice(1)];
+          return String(field).toLowerCase().includes(term);
+        })
       );
-    });
+    };
   });
 
-  // Show details view
+  // Show details
   function showDetails(id) {
-    const label = labels.find(l => l.RecordLabelID === id);
+    const label = labels.find(l => l.RecordLabelID===id);
     if (!label) return;
+    console.log("[showDetails]", label);
 
     listSection.classList.add("hidden");
     detailsSection.classList.remove("hidden");
     modal.classList.add("hidden");
 
+    // Populate details
     document.getElementById("label-details").innerHTML = `
       <p><strong>ID:</strong> ${label.RecordLabelID}</p>
       <p><strong>Name:</strong> ${label.Name}</p>
@@ -75,67 +79,82 @@ function record_labelInit() {
       <p><strong>Website:</strong> <a href="${label.Website}" target="_blank">${label.Website}</a></p>
       <p><strong>Email:</strong> ${label.Email}</p>
       <p><strong>Phone:</strong> ${label.PhoneNumber}</p>
+      <p><em>Removing this label will also remove its employees & collaborations.</em></p>
     `;
 
     document.getElementById("edit-label-btn").onclick = () => openForm("Edit Label", label);
     document.getElementById("delete-label-btn").onclick = () => {
-      if (confirm(`Delete "${label.Name}"?`)) {
-        labels = labels.filter(l => l.RecordLabelID !== id);
+      console.log("[delete] clicked", label.Name);
+      if (confirm(`Permanently remove "${label.Name}" and all related data?`)) {
+        labels = labels.filter(l => l.RecordLabelID!==id);
         backToList();
       }
     };
-    document.getElementById("back-to-list-btn").onclick = backToList;
+    document.getElementById("back-to-list-btn").onclick = () => backToList();
   }
 
   // Back to list
   function backToList() {
+    console.log("[backToList]");
     detailsSection.classList.add("hidden");
     listSection.classList.remove("hidden");
     modal.classList.add("hidden");
     renderTable(labels);
   }
 
-  // Open modal for add/edit
-  function openForm(title, label = null) {
+  // Open modal
+  function openForm(title, label=null) {
+    console.log("[openForm]", title, label);
     document.getElementById("modal-title").textContent = title;
     form.reset();
+
+    // Populate hidden ID (will be empty string for “Add”)
+    form.elements["RecordLabelID"].value = label ? label.RecordLabelID : "";
+
     if (label) {
-      Object.entries(label).forEach(([k, v]) => {
+      Object.entries(label).forEach(([k,v])=>{
         if (form.elements[k]) form.elements[k].value = v;
       });
     }
     modal.classList.remove("hidden");
   }
 
-  // Add New Label button
-  addBtn.onclick = () => openForm("Add New Label");
+  // Add New Label
+  addBtn.onclick = e => {
+    e.preventDefault();
+    console.log("[addBtn] clicked");
+    openForm("Add New Label");
+  };
 
-  // Cancel button
-  cancelBtn.onclick = () => {
+  // Cancel
+  cancelBtn.onclick = e => {
+    e.preventDefault();
+    console.log("[cancelBtn] clicked hide modal");
     modal.classList.add("hidden");
   };
 
-  // Form submission
+  // Form submit
   form.onsubmit = e => {
     e.preventDefault();
-    const fd = new FormData(form);
-    const obj = {};
-    fd.forEach((v, k) => obj[k] = v);
-
+    const fd = new FormData(form), obj={};
+    fd.forEach((v,k)=>obj[k]=v);
+    console.log("[form submit]", obj);
     if (obj.RecordLabelID) {
-      labels = labels.map(l => l.RecordLabelID == obj.RecordLabelID ? { ...l, ...obj } : l);
+      labels = labels.map(l=>l.RecordLabelID==obj.RecordLabelID?{...l,...obj}:l);
+      console.log("[form] updated", obj.RecordLabelID);
     } else {
-      obj.RecordLabelID = Math.max(0, ...labels.map(l => l.RecordLabelID)) + 1;
+      obj.RecordLabelID = Math.max(0,...labels.map(l=>l.RecordLabelID))+1;
       labels.push(obj);
+      console.log("[form] added", obj.RecordLabelID);
     }
-
     modal.classList.add("hidden");
     backToList();
   };
 
-  // Initial table population
+  // Initial table
   renderTable(labels);
+  console.log("[record_labelInit] Done");
 }
 
-// Expose init for loader
+// expose
 window.record_labelInit = record_labelInit;

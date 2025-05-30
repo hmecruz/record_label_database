@@ -149,3 +149,12 @@
 .form-actions button {
   margin-left: 0.5rem;
 }
+
+/* Highlight row on hover to indicate clickability */
+#label-list-table tbody tr {
+  transition: background-color 0.2s ease;
+}
+#label-list-table tbody tr:hover {
+  background-color: #e8e8e8;  /* slightly darker */
+  cursor: pointer;
+}
