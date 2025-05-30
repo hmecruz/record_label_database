@@ -15,6 +15,7 @@
     <input type="text" id="filter-department"  placeholder="Filter by Department…" />
     <input type="text" id="filter-email"       placeholder="Filter by Email…" />
     <input type="text" id="filter-phone"       placeholder="Filter by Phone…" />
+    <input type="text" id="filter-label"       placeholder="Filter by Label…" />
   </div>
   <table id="emp-list-table" class="data-table">
     <thead>
@@ -29,6 +30,7 @@
         <th>Hire Date</th>
         <th>Email</th>
         <th>Phone</th>
+        <th>Record Label</th>
       </tr>
     </thead>
     <tbody><!-- populated by JS --></tbody>
@@ -37,11 +39,13 @@
 
 <section id="emp-details-section" class="hidden">
   <h3>Employee Details</h3>
-  <div id="emp-details"></div>
+  <div id="emp-details">
+    <!-- populated by JS, now including label -->
+  </div>
   <div class="detail-actions">
-    <button id="edit-emp-btn"     class="btn-secondary">Edit</button>
-    <button id="delete-emp-btn"   class="btn-danger">Delete</button>
-    <button id="back-emp-list-btn"class="btn-light">Back to List</button>
+    <button id="edit-emp-btn"      class="btn-secondary">Edit</button>
+    <button id="delete-emp-btn"    class="btn-danger">Delete</button>
+    <button id="back-emp-list-btn" class="btn-light">Back to List</button>
   </div>
 </section>
 
@@ -50,6 +54,7 @@
     <h3 id="emp-modal-title">Add Employee</h3>
     <form id="emp-form">
       <input type="hidden" name="EmployeeID" />
+
       <label>
         NIF:
         <input type="text" name="NIF" required />
@@ -86,6 +91,14 @@
         Phone:
         <input type="tel" name="PhoneNumber" />
       </label>
+      <label>
+        Record Label:
+        <select name="RecordLabelID" required>
+          <option value="" disabled selected>Select a label</option>
+          <!-- Populated by JS via /api/record_labels -->
+        </select>
+      </label>
+
       <div class="form-actions">
         <button type="submit" class="btn-primary">Save</button>
         <button type="button" id="emp-cancel-btn" class="btn-light">Cancel</button>

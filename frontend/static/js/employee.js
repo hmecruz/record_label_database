@@ -1,155 +1,223 @@
 // frontend/static/js/employee.js
+// Load as an ES module: <script type="module" src="/static/js/employee.js"></script>
 
-function employeeInit() {
-  console.log("[employeeInit] start");
+import {
+  listEmployees,
+  getEmployee,
+  createEmployee,
+  updateEmployee,
+  deleteEmployee
+} from './endpoints/employee_api.js';
 
-  const listSection    = document.getElementById("emp-list-section");
-  const detailsSection = document.getElementById("emp-details-section");
-  const modal          = document.getElementById("emp-form-modal");
-  const form           = document.getElementById("emp-form");
-  const addBtn         = document.getElementById("add-emp-btn");
-  const cancelBtn      = document.getElementById("emp-cancel-btn");
+import { listLabels } from './endpoints/record_label_api.js';
 
-  // initial state
-  listSection.classList.remove("hidden");
-  detailsSection.classList.add("hidden");
-  modal.classList.add("hidden");
+function debounce(fn, delay = 300) {
+  let timer;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), delay);
+  };
+}
 
-  // Sample data with NIF & DOB
-  let emps = [
-    { EmployeeID:1, NIF:"123456789", Name:"Alice Smith", DateOfBirth:"1985-04-12", JobTitle:"Manager", Department:"A&R", Salary:55000, HireDate:"2020-06-15", Email:"alice@label.com", PhoneNumber:"111-222-3333" },
-    { EmployeeID:2, NIF:"987654321", Name:"Bob Jones",   DateOfBirth:"1990-08-30", JobTitle:"Producer",Department:"Production",Salary:48000, HireDate:"2019-03-20", Email:"bob@label.com",   PhoneNumber:"222-333-4444" }
-  ];
+async function employeeInit() {
+  console.log('[employeeInit] start');
 
+  // Elements
+  const listSection    = document.getElementById('emp-list-section');
+  const detailsSection = document.getElementById('emp-details-section');
+  const modal          = document.getElementById('emp-form-modal');
+  const form           = document.getElementById('emp-form');
+  const addBtn         = document.getElementById('add-emp-btn');
+  const cancelBtn      = document.getElementById('emp-cancel-btn');
+
+  // Filter inputs
+  const filters = {
+    nif:        document.getElementById('filter-nif'),
+    name:       document.getElementById('filter-name'),
+    dob:        document.getElementById('filter-dob'),
+    jobtitle:   document.getElementById('filter-jobtitle'),
+    department: document.getElementById('filter-department'),
+    email:      document.getElementById('filter-email'),
+    phone:      document.getElementById('filter-phone'),
+    label:      document.getElementById('filter-label')
+  };
+
+  // Ensure initial state
+  listSection.classList.remove('hidden');
+  detailsSection.classList.add('hidden');
+  modal.classList.add('hidden');
+
+  let employees = [];
+  let labels = [];
+
+  // Build the record‐label dropdown
+  async function populateLabelDropdown() {
+    try {
+      labels = await listLabels();
+      const select = form.elements['RecordLabelID'];
+      labels.forEach(lbl => {
+        const opt = document.createElement('option');
+        opt.value = lbl.RecordLabelID;
+        opt.textContent = lbl.Name;
+        select.appendChild(opt);
+      });
+    } catch (err) {
+      console.error('[API] failed to load labels for dropdown', err);
+    }
+  }
+
+  // Render table helper
   function renderTable(data) {
-    console.log("[renderTable] rows:", data.length);
-    const tbody = document.querySelector("#emp-list-table tbody");
-    tbody.innerHTML = data.map(e=>`
+    const tbody = document.querySelector('#emp-list-table tbody');
+    tbody.innerHTML = data.map(e => `
       <tr data-id="${e.EmployeeID}">
         <td>${e.EmployeeID}</td>
         <td>${e.NIF}</td>
         <td>${e.Name}</td>
-        <td>${e.DateOfBirth||""}</td>
+        <td>${e.DateOfBirth || ''}</td>
         <td>${e.JobTitle}</td>
-        <td>${e.Department}</td>
+        <td>${e.Department || ''}</td>
         <td>${e.Salary.toFixed(2)}</td>
         <td>${e.HireDate}</td>
-        <td>${e.Email||""}</td>
-        <td>${e.PhoneNumber||""}</td>
+        <td>${e.Email || ''}</td>
+        <td>${e.PhoneNumber || ''}</td>
+        <td>${e.RecordLabelName || ''}</td>
       </tr>
-    `).join("");
-    document.querySelectorAll("#emp-list-table tbody tr").forEach(row=>{
-      row.onclick = ()=> showDetails(+row.dataset.id);
+    `).join('');
+    document.querySelectorAll('#emp-list-table tbody tr').forEach(row => {
+      row.onclick = () => showDetails(+row.dataset.id);
     });
   }
 
-  // Filters: nif, name, dob, jobtitle, department, email, phone
-  ["nif","name","dob","jobtitle","department","email","phone"].forEach(key=>{
-    const input = document.getElementById(`filter-${key}`);
-    if (!input) return;
-    input.oninput = e => {
-      const term = e.target.value.toLowerCase();
-      console.log("[filter]", key, term);
-      renderTable(
-        emps.filter(emp => {
-          let field;
-          switch(key) {
-            case "nif":        field = emp.NIF; break;
-            case "dob":        field = emp.DateOfBirth; break;
-            case "jobtitle":   field = emp.JobTitle; break;
-            case "department": field = emp.Department; break;
-            case "email":      field = emp.Email; break;
-            case "phone":      field = emp.PhoneNumber; break;
-            default:           field = emp.Name;
-          }
-          return String(field||"").toLowerCase().includes(term);
-        })
-      );
-    };
-  });
+  // Fetch & render with current filter values
+  let fetchId = 0;
+  async function fetchAndRender() {
+    const thisFetch = ++fetchId;
+    const params = {};
+    Object.entries(filters).forEach(([key, inp]) => {
+      const val = inp.value.trim();
+      if (val) params[key] = val;
+    });
+    try {
+      const data = await listEmployees(params);
+      if (thisFetch !== fetchId) return; // stale
+      employees = data;
+      renderTable(employees);
+    } catch (err) {
+      console.error('[API] fetch employees failed', err);
+      alert('Failed to load employees.');
+    }
+  }
 
-  function showDetails(id) {
-    const e = emps.find(x=>x.EmployeeID===id);
-    if (!e) return;
-    console.log("[showDetails]", e);
+  // Show details (with fresh fetch)
+  async function showDetails(id) {
+    listSection.classList.add('hidden');
+    detailsSection.classList.remove('hidden');
+    modal.classList.add('hidden');
 
-    listSection.classList.add("hidden");
-    detailsSection.classList.remove("hidden");
-    modal.classList.add("hidden");
+    let e;
+    try {
+      e = await getEmployee(id);
+    } catch (err) {
+      console.error('[API] getEmployee failed', err);
+      alert('Failed to load employee details.');
+      return;
+    }
 
-    document.getElementById("emp-details").innerHTML = `
+    document.getElementById('emp-details').innerHTML = `
       <p><strong>ID:</strong> ${e.EmployeeID}</p>
       <p><strong>NIF:</strong> ${e.NIF}</p>
       <p><strong>Name:</strong> ${e.Name}</p>
-      <p><strong>DOB:</strong> ${e.DateOfBirth||"-"}</p>
+      <p><strong>DOB:</strong> ${e.DateOfBirth || '-'}</p>
       <p><strong>Job Title:</strong> ${e.JobTitle}</p>
-      <p><strong>Dept:</strong> ${e.Department}</p>
+      <p><strong>Dept:</strong> ${e.Department || '-'}</p>
       <p><strong>Salary:</strong> ${e.Salary.toFixed(2)}</p>
       <p><strong>Hired:</strong> ${e.HireDate}</p>
-      <p><strong>Email:</strong> ${e.Email||"-"}</p>
-      <p><strong>Phone:</strong> ${e.PhoneNumber||"-"}</p>
-      <p><em>Removing this employee will delete only their record.</em></p>
+      <p><strong>Email:</strong> ${e.Email || '-'}</p>
+      <p><strong>Phone:</strong> ${e.PhoneNumber || '-'}</p>
+      <p><strong>Label:</strong> ${e.RecordLabelName || '-'}</p>
     `;
-    document.getElementById("edit-emp-btn").onclick = ()=> openForm("Edit Employee", e);
-    document.getElementById("delete-emp-btn").onclick = ()=> {
-      console.log("[deleteEmp]", e.EmployeeID);
-      if (confirm(`Delete employee "${e.Name}"?`)) {
-        emps = emps.filter(x=>x.EmployeeID!==id);
+
+    document.getElementById('edit-emp-btn').onclick = () => openForm('Edit Employee', e);
+    document.getElementById('delete-emp-btn').onclick = async () => {
+      if (!confirm(`Delete employee "${e.Name}"?`)) return;
+      try {
+        await deleteEmployee(e.EmployeeID);
+        await fetchAndRender();
         backToList();
+      } catch (err) {
+        console.error('[API] deleteEmployee failed', err);
+        alert('Failed to delete employee.');
       }
     };
-    document.getElementById("back-emp-list-btn").onclick = backToList;
+    document.getElementById('back-emp-list-btn').onclick = backToList;
   }
 
-  function backToList(){
-    console.log("[backToList]");
-    detailsSection.classList.add("hidden");
-    listSection.classList.remove("hidden");
-    modal.classList.add("hidden");
-    renderTable(emps);
+  function backToList() {
+    detailsSection.classList.add('hidden');
+    listSection.classList.remove('hidden');
+    modal.classList.add('hidden');
+    renderTable(employees);
   }
 
-  function openForm(title, emp=null) {
-    console.log("[openForm]", title, emp);
-    document.getElementById("emp-modal-title").textContent = title;
+  function openForm(title, emp = {}) {
+    document.getElementById('emp-modal-title').textContent = title;
     form.reset();
-    form.elements["EmployeeID"].value = emp? emp.EmployeeID : "";
-    ["NIF","Name","DateOfBirth","JobTitle","Department","Salary","HireDate","Email","PhoneNumber"].forEach(f=>{
-      if (form.elements[f]) form.elements[f].value = emp? emp[f] : "";
-    });
-    modal.classList.remove("hidden");
+    form.elements['EmployeeID'].value = emp.EmployeeID || '';
+    form.elements['NIF'].value       = emp.NIF || '';
+    form.elements['Name'].value      = emp.Name || '';
+    form.elements['DateOfBirth'].value = emp.DateOfBirth || '';
+    form.elements['JobTitle'].value  = emp.JobTitle || '';
+    form.elements['Department'].value = emp.Department || '';
+    form.elements['Salary'].value    = emp.Salary != null ? emp.Salary : '';
+    form.elements['HireDate'].value  = emp.HireDate || '';
+    form.elements['Email'].value     = emp.Email || '';
+    form.elements['PhoneNumber'].value = emp.PhoneNumber || '';
+    form.elements['RecordLabelID'].value = emp.RecordLabelID || '';
+    modal.classList.remove('hidden');
   }
 
-  addBtn.onclick = e=>{
+  addBtn.onclick = e => {
     e.preventDefault();
-    console.log("[addEmp]");
-    openForm("Add Employee");
+    openForm('Add Employee');
   };
 
-  cancelBtn.onclick = e=>{
+  cancelBtn.onclick = e => {
     e.preventDefault();
-    console.log("[cancelEmp]");
-    modal.classList.add("hidden");
+    modal.classList.add('hidden');
   };
 
-  form.onsubmit = e=>{
+  form.onsubmit = async e => {
     e.preventDefault();
-    const fd=new FormData(form), obj={};
-    fd.forEach((v,k)=>obj[k]=v);
-    console.log("[submitEmp]", obj);
-    if (obj.EmployeeID) {
-      emps = emps.map(x=>x.EmployeeID==obj.EmployeeID?{...x,...obj}:x);
-    } else {
-      obj.EmployeeID=Math.max(0,...emps.map(x=>x.EmployeeID))+1;
-      emps.push(obj);
+    const obj = Object.fromEntries(new FormData(form));
+    const isEdit = Boolean(obj.EmployeeID);
+    try {
+      if (isEdit) {
+        await updateEmployee(obj.EmployeeID, obj);
+      } else {
+        await createEmployee(obj);
+      }
+      modal.classList.add('hidden');
+      await fetchAndRender();
+      backToList();
+    } catch (err) {
+      console.error('[API] save employee failed', err);
+      alert('Failed to save employee.');
     }
-    modal.classList.add("hidden");
-    backToList();
   };
 
-  renderTable(emps);
-  console.log("[employeeInit] done");
+  // Wire filters
+  const debouncedFetch = debounce(fetchAndRender, 300);
+  Object.values(filters).forEach(inp => {
+    if (inp) inp.oninput = debouncedFetch;
+  });
+
+  // Initial data load
+  await populateLabelDropdown();
+  await fetchAndRender();
+
+  console.log('[employeeInit] done');
 }
 
-// Expose init
+// Expose for your main loader
 window.employeeInit = employeeInit;
