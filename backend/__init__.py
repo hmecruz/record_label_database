@@ -7,6 +7,7 @@ from config.config import Config
 from config.logger import get_logger
 
 from backend.endpoints.frontend_routes import frontend_blueprint
+from backend.endpoints.db_admin_routes import db_admin_api
 from backend.endpoints.record_label import record_label_api
 
 logger = get_logger(__name__)
@@ -22,6 +23,7 @@ def create_app():
     app.config.from_object(Config)
 
     app.register_blueprint(frontend_blueprint)
+    app.register_blueprint(db_admin_api)
     app.register_blueprint(record_label_api)
 
     return app
