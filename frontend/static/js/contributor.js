@@ -1,171 +1,167 @@
-function contributorInit() {
-  console.log("[contributorInit] start");
+import {
+  listContributors,
+  getContributor,
+  createContributor,
+  updateContributor,
+  deleteContributor
+} from './endpoints/contributor_api.js';
 
-  const listSection    = document.getElementById("contrib-list-section");
-  const detailsSection = document.getElementById("contrib-details-section");
-  const modal          = document.getElementById("contrib-form-modal");
-  const form           = document.getElementById("contrib-form");
-  const addBtn         = document.getElementById("add-contrib-btn");
-  const cancelBtn      = document.getElementById("contrib-cancel-btn");
+function debounce(fn, delay = 300) {
+  let timer;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), delay);
+  };
+}
 
-  // initial visibility
-  listSection.classList.remove("hidden");
-  detailsSection.classList.add("hidden");
-  modal.classList.add("hidden");
+async function contributorInit() {
+  console.log('[contributorInit] start');
 
-  // sample data with hard-coded isEmployee flag
-  let contributors = [
-    {
-      ContributorID: 1,
-      NIF: "111111111",
-      Name: "Alice Jones",
-      DateOfBirth: "1990-01-05",
-      Email: "alice@music.com",
-      PhoneNumber: "555-1234",
-      Roles: ["Artist"],
-      isEmployee: true
-    },
-    {
-      ContributorID: 2,
-      NIF: "222222222",
-      Name: "Bob Smith",
-      DateOfBirth: "1985-07-20",
-      Email: "bob@music.com",
-      PhoneNumber: "555-5678",
-      Roles: ["Producer","Songwriter"],
-      isEmployee: false
-    }
-  ];
+  // Sections & controls
+  const listSection    = document.getElementById('contrib-list-section');
+  const detailsSection = document.getElementById('contrib-details-section');
+  const modal          = document.getElementById('contrib-form-modal');
+  const form           = document.getElementById('contrib-form');
+  const addBtn         = document.getElementById('add-contrib-btn');
+  const cancelBtn      = document.getElementById('contrib-cancel-btn');
 
-  // render table
+  // Filter inputs
+  const filters = {
+    name:  document.getElementById('filter-name'),
+    roles: document.getElementById('filter-roles'),
+    email: document.getElementById('filter-email'),
+    phone: document.getElementById('filter-phone')
+  };
+
+  let contributors = [];
+
+  // Render table rows
   function renderTable(data) {
-    console.log("[renderTable] contributors:", data.length);
-    const tbody = document.querySelector("#contrib-list-table tbody");
+    const tbody = document.querySelector('#contrib-list-table tbody');
     tbody.innerHTML = data.map(c => `
       <tr data-id="${c.ContributorID}">
         <td>${c.ContributorID}</td>
-        <td>${c.isEmployee ? "Yes" : "No"}</td>
         <td>${c.Name}</td>
-        <td>${c.DateOfBirth || ""}</td>
-        <td>${c.Email || ""}</td>
-        <td>${c.PhoneNumber || ""}</td>
-        <td>${c.Roles.join(", ")}</td>
+        <td>${c.DateOfBirth || ''}</td>
+        <td>${c.Email || ''}</td>
+        <td>${c.PhoneNumber || ''}</td>
+        <td>${c.Roles}</td>
       </tr>
-    `).join("");
-    document.querySelectorAll("#contrib-list-table tbody tr").forEach(row => {
-      row.onclick = () => showDetails(+row.dataset.id);
-    });
+    `).join('');
+    document.querySelectorAll('#contrib-list-table tbody tr')
+      .forEach(row => row.onclick = () => showDetails(+row.dataset.id));
   }
 
-  // filters: name, roles, email, phone
-  [
-    { key: "name",  field: c => c.Name },
-    { key: "roles", field: c => c.Roles.join(" ") },
-    { key: "email", field: c => c.Email || "" },
-    { key: "phone", field: c => c.PhoneNumber || "" }
-  ].forEach(({ key, field }) => {
-    const input = document.getElementById(`filter-${key}`);
-    if (!input) return;
-    input.oninput = e => {
-      const term = e.target.value.toLowerCase();
-      console.log("[filter]", key, term);
-      renderTable(contributors.filter(c => field(c).toLowerCase().includes(term)));
-    };
-  });
+  // Fetch from server with name/role/email/phone filters
+  let fetchId = 0;
+  async function fetchAndRender() {
+    const myFetch = ++fetchId;
+    const params = {};
+    if (filters.name.value)  params.name  = filters.name.value;
+    if (filters.roles.value) params.role  = filters.roles.value;
+    if (filters.email.value) params.email = filters.email.value;
+    if (filters.phone.value) params.phone = filters.phone.value;
 
-  // show details
-  function showDetails(id) {
-    const c = contributors.find(x => x.ContributorID === id);
-    if (!c) return;
-    console.log("[showDetails]", c);
+    try {
+      const data = await listContributors(params);
+      if (myFetch !== fetchId) return;
+      contributors = data;
+      renderTable(contributors);
+    } catch (err) {
+      console.error('[API] listContributors failed', err);
+      alert('Failed to load contributors.');
+    }
+  }
 
-    listSection.classList.add("hidden");
-    detailsSection.classList.remove("hidden");
-    modal.classList.add("hidden");
+  // Show details
+  async function showDetails(id) {
+    listSection.classList.add('hidden');
+    detailsSection.classList.remove('hidden');
+    modal.classList.add('hidden');
 
-    document.getElementById("contrib-details").innerHTML = `
+    let c;
+    try {
+      c = await getContributor(id);
+    } catch (err) {
+      console.error('[API] getContributor failed', err);
+      alert('Failed to load contributor details.');
+      return;
+    }
+
+    document.getElementById('contrib-details').innerHTML = `
       <p><strong>ID:</strong> ${c.ContributorID}</p>
-      <p><strong>Employee:</strong> ${c.isEmployee ? "Yes" : "No"}</p>
       <p><strong>Name:</strong> ${c.Name}</p>
-      <p><strong>DOB:</strong> ${c.DateOfBirth || "-"}</p>
-      <p><strong>Email:</strong> ${c.Email || "-"}</p>
-      <p><strong>Phone:</strong> ${c.PhoneNumber || "-"}</p>
-      <p><strong>Roles:</strong> ${c.Roles.join(", ")}</p>
+      <p><strong>Date of Birth:</strong> ${c.DateOfBirth || '-'}</p>
+      <p><strong>Email:</strong> ${c.Email || '-'}</p>
+      <p><strong>Phone:</strong> ${c.PhoneNumber || '-'}</p>
+      <p><strong>Roles:</strong> ${c.Roles || '-'}</p>
     `;
-    document.getElementById("edit-contrib-btn").onclick = () => openForm("Edit Contributor", c);
-    document.getElementById("delete-contrib-btn").onclick = () => {
-      console.log("[delete]", c.ContributorID);
-      if (confirm(`Delete contributor "${c.Name}"?`)) {
-        contributors = contributors.filter(x => x.ContributorID !== id);
+
+    document.getElementById('edit-contrib-btn').onclick = () => openForm('Edit Contributor', c);
+    document.getElementById('delete-contrib-btn').onclick = async () => {
+      if (!confirm(`Delete contributor "${c.Name}"?`)) return;
+      try {
+        await deleteContributor(c.ContributorID);
+        await fetchAndRender();
         backToList();
+      } catch (err) {
+        console.error('[API] deleteContributor failed', err);
+        alert('Failed to delete contributor.');
       }
     };
-    document.getElementById("back-contrib-list-btn").onclick = backToList;
+    document.getElementById('back-contrib-list-btn').onclick = backToList;
   }
 
-  // back to list
   function backToList() {
-    console.log("[backToList]");
-    detailsSection.classList.add("hidden");
-    listSection.classList.remove("hidden");
-    modal.classList.add("hidden");
+    detailsSection.classList.add('hidden');
+    listSection.classList.remove('hidden');
+    modal.classList.add('hidden');
     renderTable(contributors);
   }
 
-  // open modal
-  function openForm(title, c = null) {
-    console.log("[openForm]", title, c);
-    document.getElementById("contrib-modal-title").textContent = title;
+  // Open Add/Edit form
+  function openForm(title, c = {}) {
+    document.getElementById('contrib-modal-title').textContent = title;
     form.reset();
-    form.elements["ContributorID"].value = c ? c.ContributorID : "";
-    form.elements["NIF"].value           = c ? c.NIF : "";
-    form.elements["Name"].value          = c ? c.Name : "";
-    form.elements["DateOfBirth"].value   = c ? c.DateOfBirth : "";
-    form.elements["Email"].value         = c ? c.Email : "";
-    form.elements["PhoneNumber"].value   = c ? c.PhoneNumber : "";
-    form.elements["Roles"].value         = c ? c.Roles.join(", ") : "";
-    // Note: isEmployee is not editable here
-    modal.classList.remove("hidden");
+    form.elements['ContributorID'].value = c.ContributorID || '';
+    form.elements['Name'].value          = c.Name || '';
+    form.elements['DateOfBirth'].value   = c.DateOfBirth || '';
+    form.elements['Email'].value         = c.Email || '';
+    form.elements['PhoneNumber'].value   = c.PhoneNumber || '';
+    form.elements['Roles'].value         = c.Roles || '';
+    modal.classList.remove('hidden');
   }
 
-  // add
-  addBtn.onclick = e => {
-    e.preventDefault();
-    openForm("Add Contributor");
-  };
+  // Handlers
+  addBtn.onclick = e => { e.preventDefault(); openForm('Add Contributor'); };
+  cancelBtn.onclick = e => { e.preventDefault(); modal.classList.add('hidden'); };
 
-  // cancel
-  cancelBtn.onclick = e => {
+  form.onsubmit = async e => {
     e.preventDefault();
-    console.log("[cancel]");
-    modal.classList.add("hidden");
-  };
-
-  // submit
-  form.onsubmit = e => {
-    e.preventDefault();
-    const fd = new FormData(form), obj = {};
-    fd.forEach((v, k) => obj[k] = v);
-    console.log("[submit]", obj);
-    obj.Roles = obj.Roles.split(",").map(s => s.trim()).filter(Boolean);
-    if (obj.ContributorID) {
-      contributors = contributors.map(x =>
-        x.ContributorID == obj.ContributorID ? { ...x, ...obj } : x
-      );
-    } else {
-      obj.ContributorID = Math.max(0, ...contributors.map(x => x.ContributorID)) + 1;
-      obj.NIF = obj.NIF || String(100000000 + obj.ContributorID);
-      obj.isEmployee = false;  // default for new
-      contributors.push(obj);
+    const data = Object.fromEntries(new FormData(form));
+    try {
+      if (data.ContributorID) {
+        await updateContributor(data.ContributorID, data);
+      } else {
+        await createContributor(data);
+      }
+      modal.classList.add('hidden');
+      await fetchAndRender();
+      backToList();
+    } catch (err) {
+      console.error('[API] saveContributor failed', err);
+      alert('Failed to save contributor.');
     }
-    modal.classList.add("hidden");
-    backToList();
   };
 
-  // initial
-  renderTable(contributors);
-  console.log("[contributorInit] done");
+  // Wire filters
+  const deb = debounce(fetchAndRender, 300);
+  Object.values(filters).forEach(inp => { if (inp) inp.oninput = deb; });
+
+  // Initial load
+  await fetchAndRender();
+  console.log('[contributorInit] done');
 }
 
-// expose
+// Expose for your main loader
 window.contributorInit = contributorInit;

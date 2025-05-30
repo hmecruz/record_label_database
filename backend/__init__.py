@@ -11,6 +11,7 @@ from backend.endpoints.db_admin_routes import db_admin_api
 from backend.endpoints.record_label import record_label_api
 from backend.endpoints.employee import employee_api
 from backend.endpoints.songs import songs_api
+from backend.endpoints.contributors import contributors_api
 
 logger = get_logger(__name__)
 
@@ -29,5 +30,6 @@ def create_app():
     app.register_blueprint(record_label_api)
     app.register_blueprint(employee_api)
     app.register_blueprint(songs_api)
+    app.register_blueprint(contributors_api)
 
     return app

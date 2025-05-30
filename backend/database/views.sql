@@ -63,3 +63,37 @@ OUTER APPLY (
 -- collaboration (one-to-one)
 LEFT JOIN dbo.Collaboration col ON col.Song_SongID = s.SongID
 GO
+
+-- Contributors View
+GO
+CREATE OR ALTER VIEW dbo.vw_Contributors
+AS
+SELECT
+    c.ContributorID,
+    p.NIF,
+    p.Name,
+    p.DateOfBirth,
+    p.Email,
+    p.PhoneNumber,
+    -- aggregate roles
+    STUFF(
+      COALESCE(a.Roles, '') + 
+      COALESCE(pr.Roles, '') +
+      COALESCE(sw.Roles, ''),
+      1, 2, ''  -- remove leading ", "
+    ) AS Roles
+FROM dbo.Contributor c
+JOIN dbo.Person p ON p.NIF = c.Person_NIF
+OUTER APPLY (
+    SELECT ', ' + 'Artist'
+    WHERE EXISTS(SELECT 1 FROM dbo.Artist WHERE Contributor_ContributorID = c.ContributorID)
+) AS a(Roles)
+OUTER APPLY (
+    SELECT ', ' + 'Producer'
+    WHERE EXISTS(SELECT 1 FROM dbo.Producer WHERE Contributor_ContributorID = c.ContributorID)
+) AS pr(Roles)
+OUTER APPLY (
+    SELECT ', ' + 'Songwriter'
+    WHERE EXISTS(SELECT 1 FROM dbo.Songwriter WHERE Contributor_ContributorID = c.ContributorID)
+) AS sw(Roles);
+GO
