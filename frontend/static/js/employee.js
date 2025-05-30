@@ -22,7 +22,7 @@ function debounce(fn, delay = 300) {
 async function employeeInit() {
   console.log('[employeeInit] start');
 
-  // Elements
+  // Sections & controls
   const listSection    = document.getElementById('emp-list-section');
   const detailsSection = document.getElementById('emp-details-section');
   const modal          = document.getElementById('emp-form-modal');
@@ -30,43 +30,37 @@ async function employeeInit() {
   const addBtn         = document.getElementById('add-emp-btn');
   const cancelBtn      = document.getElementById('emp-cancel-btn');
 
-  // Filter inputs
-  const filters = {
+  // Filter inputs (no DOB filter here!)
+  const filterElems = {
     nif:        document.getElementById('filter-nif'),
     name:       document.getElementById('filter-name'),
-    dob:        document.getElementById('filter-dob'),
     jobtitle:   document.getElementById('filter-jobtitle'),
     department: document.getElementById('filter-department'),
     email:      document.getElementById('filter-email'),
     phone:      document.getElementById('filter-phone'),
+    salary:     document.getElementById('filter-salary'),
     label:      document.getElementById('filter-label')
   };
 
-  // Ensure initial state
-  listSection.classList.remove('hidden');
-  detailsSection.classList.add('hidden');
-  modal.classList.add('hidden');
+  // Which filters go to the SP (everything except salary & label)
+  const serverKeys = ['nif','name','jobtitle','department','email','phone'];
 
   let employees = [];
-  let labels = [];
+  let labels    = [];
 
-  // Build the record‐label dropdown
+  // Populate "Record Label" <select> in the form
   async function populateLabelDropdown() {
-    try {
-      labels = await listLabels();
-      const select = form.elements['RecordLabelID'];
-      labels.forEach(lbl => {
-        const opt = document.createElement('option');
-        opt.value = lbl.RecordLabelID;
-        opt.textContent = lbl.Name;
-        select.appendChild(opt);
-      });
-    } catch (err) {
-      console.error('[API] failed to load labels for dropdown', err);
-    }
+    labels = await listLabels();
+    const select = form.elements['RecordLabelID'];
+    labels.forEach(lbl => {
+      const opt = document.createElement('option');
+      opt.value = lbl.RecordLabelID;
+      opt.textContent = lbl.Name;
+      select.appendChild(opt);
+    });
   }
 
-  // Render table helper
+  // Render the table rows, including DateOfBirth
   function renderTable(data) {
     const tbody = document.querySelector('#emp-list-table tbody');
     tbody.innerHTML = data.map(e => `
@@ -84,24 +78,35 @@ async function employeeInit() {
         <td>${e.RecordLabelName || ''}</td>
       </tr>
     `).join('');
-    document.querySelectorAll('#emp-list-table tbody tr').forEach(row => {
-      row.onclick = () => showDetails(+row.dataset.id);
-    });
+    document.querySelectorAll('#emp-list-table tbody tr')
+      .forEach(row => row.onclick = () => showDetails(+row.dataset.id));
   }
 
-  // Fetch & render with current filter values
+  // Fetch from server, then apply client-side salary & label filtering
   let fetchId = 0;
   async function fetchAndRender() {
-    const thisFetch = ++fetchId;
+    const myFetch = ++fetchId;
+    // Build SP params
     const params = {};
-    Object.entries(filters).forEach(([key, inp]) => {
-      const val = inp.value.trim();
-      if (val) params[key] = val;
+    serverKeys.forEach(k => {
+      const v = filterElems[k].value.trim();
+      if (v) params[k] = v;
     });
+
     try {
-      const data = await listEmployees(params);
-      if (thisFetch !== fetchId) return; // stale
-      employees = data;
+      const srvRows = await listEmployees(params);
+      if (myFetch !== fetchId) return;  // discard stale
+
+      // Client-side salary & label filter
+      const minSalary = parseFloat(filterElems.salary.value) || 0;
+      const labelTerm = filterElems.label.value.trim().toLowerCase();
+
+      employees = srvRows.filter(e => {
+        if (filterElems.salary.value && e.Salary < minSalary) return false;
+        if (labelTerm && !e.RecordLabelName.toLowerCase().includes(labelTerm)) return false;
+        return true;
+      });
+
       renderTable(employees);
     } catch (err) {
       console.error('[API] fetch employees failed', err);
@@ -109,7 +114,7 @@ async function employeeInit() {
     }
   }
 
-  // Show details (with fresh fetch)
+  // Show details view (fetch fresh)
   async function showDetails(id) {
     listSection.classList.add('hidden');
     detailsSection.classList.remove('hidden');
@@ -120,7 +125,7 @@ async function employeeInit() {
       e = await getEmployee(id);
     } catch (err) {
       console.error('[API] getEmployee failed', err);
-      alert('Failed to load employee details.');
+      alert('Failed to load details.');
       return;
     }
 
@@ -128,19 +133,19 @@ async function employeeInit() {
       <p><strong>ID:</strong> ${e.EmployeeID}</p>
       <p><strong>NIF:</strong> ${e.NIF}</p>
       <p><strong>Name:</strong> ${e.Name}</p>
-      <p><strong>DOB:</strong> ${e.DateOfBirth || '-'}</p>
+      <p><strong>Date of Birth:</strong> ${e.DateOfBirth || '-'}</p>
       <p><strong>Job Title:</strong> ${e.JobTitle}</p>
-      <p><strong>Dept:</strong> ${e.Department || '-'}</p>
+      <p><strong>Department:</strong> ${e.Department || '-'}</p>
       <p><strong>Salary:</strong> ${e.Salary.toFixed(2)}</p>
       <p><strong>Hired:</strong> ${e.HireDate}</p>
       <p><strong>Email:</strong> ${e.Email || '-'}</p>
       <p><strong>Phone:</strong> ${e.PhoneNumber || '-'}</p>
-      <p><strong>Label:</strong> ${e.RecordLabelName || '-'}</p>
+      <p><strong>Record Label:</strong> ${e.RecordLabelName || '-'}</p>
     `;
 
     document.getElementById('edit-emp-btn').onclick = () => openForm('Edit Employee', e);
     document.getElementById('delete-emp-btn').onclick = async () => {
-      if (!confirm(`Delete employee "${e.Name}"?`)) return;
+      if (!confirm(`Delete "${e.Name}"?`)) return;
       try {
         await deleteEmployee(e.EmployeeID);
         await fetchAndRender();
@@ -153,6 +158,7 @@ async function employeeInit() {
     document.getElementById('back-emp-list-btn').onclick = backToList;
   }
 
+  // Return to the list
   function backToList() {
     detailsSection.classList.add('hidden');
     listSection.classList.remove('hidden');
@@ -160,39 +166,34 @@ async function employeeInit() {
     renderTable(employees);
   }
 
+  // Open Add/Edit form
   function openForm(title, emp = {}) {
     document.getElementById('emp-modal-title').textContent = title;
     form.reset();
-    form.elements['EmployeeID'].value = emp.EmployeeID || '';
-    form.elements['NIF'].value       = emp.NIF || '';
-    form.elements['Name'].value      = emp.Name || '';
-    form.elements['DateOfBirth'].value = emp.DateOfBirth || '';
-    form.elements['JobTitle'].value  = emp.JobTitle || '';
-    form.elements['Department'].value = emp.Department || '';
-    form.elements['Salary'].value    = emp.Salary != null ? emp.Salary : '';
-    form.elements['HireDate'].value  = emp.HireDate || '';
-    form.elements['Email'].value     = emp.Email || '';
-    form.elements['PhoneNumber'].value = emp.PhoneNumber || '';
-    form.elements['RecordLabelID'].value = emp.RecordLabelID || '';
+    form.elements['EmployeeID'].value     = emp.EmployeeID || '';
+    form.elements['NIF'].value            = emp.NIF || '';
+    form.elements['Name'].value           = emp.Name || '';
+    form.elements['DateOfBirth'].value    = emp.DateOfBirth || '';
+    form.elements['JobTitle'].value       = emp.JobTitle || '';
+    form.elements['Department'].value     = emp.Department || '';
+    form.elements['Salary'].value         = emp.Salary != null ? emp.Salary : '';
+    form.elements['HireDate'].value       = emp.HireDate || '';
+    form.elements['Email'].value          = emp.Email || '';
+    form.elements['PhoneNumber'].value    = emp.PhoneNumber || '';
+    form.elements['RecordLabelID'].value  = emp.RecordLabelID || '';
     modal.classList.remove('hidden');
   }
 
-  addBtn.onclick = e => {
-    e.preventDefault();
-    openForm('Add Employee');
-  };
+  // Handlers for New/Cancel
+  addBtn.onclick = e => { e.preventDefault(); openForm('Add Employee'); };
+  cancelBtn.onclick = e => { e.preventDefault(); modal.classList.add('hidden'); };
 
-  cancelBtn.onclick = e => {
-    e.preventDefault();
-    modal.classList.add('hidden');
-  };
-
+  // Form submit → create/update
   form.onsubmit = async e => {
     e.preventDefault();
     const obj = Object.fromEntries(new FormData(form));
-    const isEdit = Boolean(obj.EmployeeID);
     try {
-      if (isEdit) {
+      if (obj.EmployeeID) {
         await updateEmployee(obj.EmployeeID, obj);
       } else {
         await createEmployee(obj);
@@ -202,20 +203,17 @@ async function employeeInit() {
       backToList();
     } catch (err) {
       console.error('[API] save employee failed', err);
-      alert('Failed to save employee.');
+      alert('Failed to save.');
     }
   };
 
-  // Wire filters
-  const debouncedFetch = debounce(fetchAndRender, 300);
-  Object.values(filters).forEach(inp => {
-    if (inp) inp.oninput = debouncedFetch;
-  });
+  // Wire all filters to a debounced fetch
+  const deb = debounce(fetchAndRender, 300);
+  Object.values(filterElems).forEach(inp => { if (inp) inp.oninput = deb; });
 
-  // Initial data load
+  // Initial load
   await populateLabelDropdown();
   await fetchAndRender();
-
   console.log('[employeeInit] done');
 }
 

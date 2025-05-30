@@ -1,5 +1,3 @@
--- This script creates stored procedures for managing employees in a music database.
-
 -- GetEmployees: Retrieves employees based on optional search criteria.
 CREATE OR ALTER PROCEDURE dbo.sp_GetEmployees
     @NIF         VARCHAR(20)    = NULL,
@@ -53,27 +51,15 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    BEGIN TRY
-        BEGIN TRANSACTION
+    INSERT INTO dbo.Person (NIF, Name, DateOfBirth, Email, PhoneNumber)
+    VALUES (@NIF, @Name, @DateOfBirth, @Email, @PhoneNumber);
 
-        -- 1) Insert base Person
-        INSERT INTO dbo.Person (NIF, Name, DateOfBirth, Email, PhoneNumber)
-        VALUES (@NIF, @Name, @DateOfBirth, @Email, @PhoneNumber);
+    INSERT INTO dbo.Employee
+        (JobTitle, Department, Salary, HireDate, RecordLabel_RecordLabelID, Person_NIF)
+    VALUES
+        (@JobTitle, @Department, @Salary, @HireDate, @RecordLabelID, @NIF);
 
-        -- 2) Insert Employee
-        INSERT INTO dbo.Employee
-            (JobTitle, Department, Salary, HireDate, RecordLabel_RecordLabelID, Person_NIF)
-        VALUES
-            (@JobTitle, @Department, @Salary, @HireDate, @RecordLabelID, @NIF);
-
-        SET @NewID = SCOPE_IDENTITY();  -- Employee’s identity
-
-        COMMIT TRANSACTION
-    END TRY
-    BEGIN CATCH
-        ROLLBACK TRANSACTION
-        THROW 50010, 'Error creating employee', 1
-    END CATCH
+    SET @NewID = SCOPE_IDENTITY();
 END
 GO
 
@@ -93,39 +79,25 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    BEGIN TRY
-        BEGIN TRANSACTION
+    UPDATE dbo.Person
+    SET
+        Name        = @Name,
+        DateOfBirth = @DateOfBirth,
+        Email       = @Email,
+        PhoneNumber = @PhoneNumber
+    WHERE NIF = (SELECT Person_NIF FROM dbo.Employee WHERE EmployeeID = @ID);
 
-        -- Update Person
-        UPDATE dbo.Person
-        SET
-            Name        = @Name,
-            DateOfBirth = @DateOfBirth,
-            Email       = @Email,
-            PhoneNumber = @PhoneNumber
-        WHERE NIF = (
-            SELECT Person_NIF FROM dbo.Employee WHERE EmployeeID = @ID
-        );
+    UPDATE dbo.Employee
+    SET
+        JobTitle                  = @JobTitle,
+        Department                = @Department,
+        Salary                    = @Salary,
+        HireDate                  = @HireDate,
+        RecordLabel_RecordLabelID = @RecordLabelID
+    WHERE EmployeeID = @ID;
 
-        -- Update Employee
-        UPDATE dbo.Employee
-        SET
-            JobTitle                  = @JobTitle,
-            Department                = @Department,
-            Salary                    = @Salary,
-            HireDate                  = @HireDate,
-            RecordLabel_RecordLabelID = @RecordLabelID
-        WHERE EmployeeID = @ID;
-
-        IF @@ROWCOUNT = 0
-            THROW 50011, 'Employee not found', 1;
-
-        COMMIT TRANSACTION
-    END TRY
-    BEGIN CATCH
-        ROLLBACK TRANSACTION
-        THROW;  -- propagate error
-    END CATCH
+    IF @@ROWCOUNT = 0
+        RAISERROR('Employee with ID %d not found', 16, 1, @ID);
 END
 GO
 
@@ -140,6 +112,6 @@ BEGIN
     WHERE EmployeeID = @ID;
 
     IF @@ROWCOUNT = 0
-        THROW 50012, 'Employee not found', 1;
+        RAISERROR('Employee with ID %d not found', 16, 1, @ID);
 END
 GO
