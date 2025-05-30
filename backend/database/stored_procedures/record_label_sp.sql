@@ -1,5 +1,3 @@
--- This script creates stored procedures for managing record labels in a music database.
-
 -- GetRecordLabels: Retrieves record labels based on optional search criteria.
 CREATE OR ALTER PROCEDURE dbo.sp_GetRecordLabels
     @Name      VARCHAR(255) = NULL,

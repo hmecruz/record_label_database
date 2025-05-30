@@ -1,5 +1,3 @@
-// frontend/static/js/contributor.js
-
 function contributorInit() {
   console.log("[contributorInit] start");
 

@@ -1,5 +1,3 @@
-// frontend/static/js/collaboration.js
-
 function collaborationInit() {
   console.log("[collaborationInit] start");
 

@@ -1,6 +1,3 @@
-// frontend/static/js/employee.js
-// Load as an ES module: <script type="module" src="/static/js/employee.js"></script>
-
 import {
   listEmployees,
   getEmployee,

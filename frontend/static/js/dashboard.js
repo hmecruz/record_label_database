@@ -1,4 +1,3 @@
-// dashboard.js
 function dashboardInit() {
   // Replace with real API calls as needed
   const stats = {

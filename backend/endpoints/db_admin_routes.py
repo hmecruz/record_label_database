@@ -1,5 +1,3 @@
-# backend/endpoints/db_admin_routes.py
-
 import os
 from flask import Blueprint, jsonify, abort
 from config.database_config import DatabaseConfig

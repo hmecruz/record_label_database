@@ -1,6 +1,3 @@
-// frontend/static/js/record_label.js
-// Load as an ES module: <script type="module" src="/static/js/record_label.js"></script>
-
 import {
   listLabels,
   getLabel,

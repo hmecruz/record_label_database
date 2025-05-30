@@ -1,5 +1,3 @@
-// frontend/static/js/api/record_label_api.js
-
 const BASE = ''; // same-origin
 
 export async function listLabels(filters = {}) {

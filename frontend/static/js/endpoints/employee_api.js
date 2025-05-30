@@ -1,5 +1,3 @@
-// frontend/static/js/endpoints/employee_api.js
-
 const BASE = ''; // same-origin
 
 /**
