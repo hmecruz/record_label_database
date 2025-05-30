@@ -1,6 +1,13 @@
 // frontend/static/js/record_label.js
 
-function record_labelInit() {
+import {
+  listLabels,
+  createLabel,
+  updateLabel,
+  deleteLabel
+} from './endpoints/record_label_api.js';
+
+async function record_labelInit() {
   console.log("[record_labelInit] Init");
 
   // Elements
@@ -11,17 +18,21 @@ function record_labelInit() {
   const addBtn         = document.getElementById("add-label-btn");
   const cancelBtn      = document.getElementById("cancel-form-btn");
 
+  // Filter inputs
+  const filters = {
+    name:     document.getElementById("filter-name"),
+    location: document.getElementById("filter-location"),
+    website:  document.getElementById("filter-website"),
+    email:    document.getElementById("filter-email"),
+    phone:    document.getElementById("filter-phone"),
+  };
+
   // Ensure initial state
   listSection.classList.remove("hidden");
   detailsSection.classList.add("hidden");
   modal.classList.add("hidden");
 
-  // Sample data
-  let labels = [
-    { RecordLabelID: 1, Name: "Universal Music", Location: "Los Angeles", Website: "https://universal.com", Email: "contact@universal.com", PhoneNumber: "123-456-7890" },
-    { RecordLabelID: 2, Name: "Sony Music",      Location: "New York",   Website: "https://sonymusic.com", Email: "info@sonymusic.com",    PhoneNumber: "234-567-8901" },
-    { RecordLabelID: 3, Name: "Warner Music",    Location: "London",     Website: "https://warnermusic.com", Email: "hello@warnermusic.com",PhoneNumber: "345-678-9012" }
-  ];
+  let labels = [];
 
   // Render table helper
   function renderTable(data) {
@@ -38,40 +49,43 @@ function record_labelInit() {
       </tr>
     `).join("");
     document.querySelectorAll("#label-list-table tbody tr").forEach(row => {
-      row.onclick = () => {
-        console.log("[row] click id=", row.dataset.id);
-        showDetails(+row.dataset.id);
-      };
+      row.onclick = () => showDetails(+row.dataset.id);
     });
   }
 
-  // Filters: name, location, website, email, phone
-  ["name","location","website","email","phone"].forEach(key => {
-    const input = document.getElementById(`filter-${key}`);
-    if (!input) return console.warn("[filter] no input for", key);
-    input.oninput = e => {
-      const term = e.target.value.toLowerCase();
-      console.log("[filter]", key, term);
-      renderTable(
-        labels.filter(l => {
-          const field = key === "phone" ? l.PhoneNumber : l[key.charAt(0).toUpperCase()+key.slice(1)];
-          return String(field).toLowerCase().includes(term);
-        })
-      );
+  // Fetch & render with current filter values
+  async function fetchAndRender() {
+    const params = {};
+    for (let key in filters) {
+      const val = filters[key].value.trim();
+      if (val) params[key] = val;
+    }
+    try {
+      labels = await listLabels(params);
+      renderTable(labels);
+    } catch (err) {
+      console.error("[API] fetch failed", err);
+      alert("Failed to fetch record labels.");
+    }
+  }
+
+  // Attach filter handlers
+  Object.values(filters).forEach(input => {
+    if (!input) return;
+    input.oninput = () => {
+      // debounce if needed; for now call immediately
+      fetchAndRender();
     };
   });
 
   // Show details
   function showDetails(id) {
-    const label = labels.find(l => l.RecordLabelID===id);
+    const label = labels.find(l => l.RecordLabelID === id);
     if (!label) return;
-    console.log("[showDetails]", label);
-
     listSection.classList.add("hidden");
     detailsSection.classList.remove("hidden");
     modal.classList.add("hidden");
 
-    // Populate details
     document.getElementById("label-details").innerHTML = `
       <p><strong>ID:</strong> ${label.RecordLabelID}</p>
       <p><strong>Name:</strong> ${label.Name}</p>
@@ -83,36 +97,35 @@ function record_labelInit() {
     `;
 
     document.getElementById("edit-label-btn").onclick = () => openForm("Edit Label", label);
-    document.getElementById("delete-label-btn").onclick = () => {
-      console.log("[delete] clicked", label.Name);
-      if (confirm(`Permanently remove "${label.Name}" and all related data?`)) {
-        labels = labels.filter(l => l.RecordLabelID!==id);
+    document.getElementById("delete-label-btn").onclick = async () => {
+      if (!confirm(`Permanently remove "${label.Name}" and all related data?`)) return;
+      try {
+        await deleteLabel(label.RecordLabelID);
+        await fetchAndRender();
         backToList();
+      } catch (err) {
+        console.error("[API] delete failed", err);
+        alert("Failed to delete label.");
       }
     };
-    document.getElementById("back-to-list-btn").onclick = () => backToList();
+    document.getElementById("back-to-list-btn").onclick = backToList;
   }
 
   // Back to list
   function backToList() {
-    console.log("[backToList]");
-    detailsSection.classList.add("hidden");
     listSection.classList.remove("hidden");
+    detailsSection.classList.add("hidden");
     modal.classList.add("hidden");
     renderTable(labels);
   }
 
   // Open modal
-  function openForm(title, label=null) {
-    console.log("[openForm]", title, label);
+  function openForm(title, label = null) {
     document.getElementById("modal-title").textContent = title;
     form.reset();
-
-    // Populate hidden ID (will be empty string for “Add”)
     form.elements["RecordLabelID"].value = label ? label.RecordLabelID : "";
-
     if (label) {
-      Object.entries(label).forEach(([k,v])=>{
+      Object.entries(label).forEach(([k, v]) => {
         if (form.elements[k]) form.elements[k].value = v;
       });
     }
@@ -122,39 +135,39 @@ function record_labelInit() {
   // Add New Label
   addBtn.onclick = e => {
     e.preventDefault();
-    console.log("[addBtn] clicked");
     openForm("Add New Label");
   };
 
   // Cancel
   cancelBtn.onclick = e => {
     e.preventDefault();
-    console.log("[cancelBtn] clicked hide modal");
     modal.classList.add("hidden");
   };
 
   // Form submit
-  form.onsubmit = e => {
+  form.onsubmit = async e => {
     e.preventDefault();
-    const fd = new FormData(form), obj={};
-    fd.forEach((v,k)=>obj[k]=v);
-    console.log("[form submit]", obj);
-    if (obj.RecordLabelID) {
-      labels = labels.map(l=>l.RecordLabelID==obj.RecordLabelID?{...l,...obj}:l);
-      console.log("[form] updated", obj.RecordLabelID);
-    } else {
-      obj.RecordLabelID = Math.max(0,...labels.map(l=>l.RecordLabelID))+1;
-      labels.push(obj);
-      console.log("[form] added", obj.RecordLabelID);
+    const obj = Object.fromEntries(new FormData(form));
+    const isEdit = Boolean(obj.RecordLabelID);
+    try {
+      if (isEdit) {
+        await updateLabel(obj.RecordLabelID, obj);
+      } else {
+        await createLabel(obj);
+      }
+      modal.classList.add("hidden");
+      await fetchAndRender();
+      backToList();
+    } catch (err) {
+      console.error("[API] save failed", err);
+      alert("Failed to save label.");
     }
-    modal.classList.add("hidden");
-    backToList();
   };
 
-  // Initial table
-  renderTable(labels);
+  // Initial load
+  await fetchAndRender();
   console.log("[record_labelInit] Done");
 }
 
-// expose
+// Expose for your main loader
 window.record_labelInit = record_labelInit;
