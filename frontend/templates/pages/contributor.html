@@ -1,0 +1,79 @@
+<!-- frontend/templates/pages/contributor.html -->
+
+<div class="page-header">
+  <h2>Contributors</h2>
+  <button id="add-contrib-btn" class="btn-primary">+ Add Contributor</button>
+</div>
+
+<!-- List -->
+<section id="contrib-list-section">
+  <h3>All Contributors</h3>
+  <div class="filter-row">
+    <input type="text"    id="filter-name"     placeholder="Filter by Name…" />
+    <input type="text"    id="filter-roles"    placeholder="Filter by Role…" />
+    <input type="text"    id="filter-email"    placeholder="Filter by Email…" />
+    <input type="text"    id="filter-phone"    placeholder="Filter by Phone…" />
+  </div>
+  <table id="contrib-list-table" class="data-table">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Employee</th>
+        <th>Name</th>
+        <th>Date of Birth</th>
+        <th>Email</th>
+        <th>Phone</th>
+        <th>Roles</th>
+      </tr>
+    </thead>
+    <tbody><!-- JS populated --></tbody>
+  </table>
+</section>
+
+<!-- Details / Edit / Delete -->
+<section id="contrib-details-section" class="hidden">
+  <h3>Contributor Details</h3>
+  <div id="contrib-details"></div>
+  <div class="detail-actions">
+    <button id="edit-contrib-btn"   class="btn-secondary">Edit</button>
+    <button id="delete-contrib-btn" class="btn-danger">Delete</button>
+    <button id="back-contrib-list-btn" class="btn-light">Back to List</button>
+  </div>
+</section>
+
+<!-- Add/Edit Modal -->
+<div id="contrib-form-modal" class="modal hidden">
+  <div class="modal-content">
+    <h3 id="contrib-modal-title">Add Contributor</h3>
+    <form id="contrib-form">
+      <input type="hidden" name="ContributorID" />
+      <input type="hidden" name="NIF" />
+
+      <label>
+        Name:
+        <input type="text" name="Name" required />
+      </label>
+      <label>
+        Date of Birth:
+        <input type="date" name="DateOfBirth" />
+      </label>
+      <label>
+        Email:
+        <input type="email" name="Email" />
+      </label>
+      <label>
+        Phone:
+        <input type="tel" name="PhoneNumber" />
+      </label>
+      <label>
+        Roles (comma-separated: Artist, Producer, Songwriter):
+        <input type="text" name="Roles" />
+      </label>
+
+      <div class="form-actions">
+        <button type="submit" class="btn-primary">Save</button>
+        <button type="button" id="contrib-cancel-btn" class="btn-light">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>

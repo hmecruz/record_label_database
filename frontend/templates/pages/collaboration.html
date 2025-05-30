@@ -1,0 +1,86 @@
+<!-- frontend/templates/pages/collaboration.html -->
+
+<div class="page-header">
+  <h2>Collaborations</h2>
+  <button id="add-collab-btn" class="btn-primary">+ Add Collaboration</button>
+</div>
+
+<section id="collab-list-section">
+  <h3>All Collaborations</h3>
+  <div class="filter-row">
+    <input type="text"    id="filter-name"           placeholder="Filter by Name…" />
+    <input type="date"    id="filter-start"          placeholder="Filter by Start Date…" />
+    <input type="date"    id="filter-end"            placeholder="Filter by End Date…" />
+    <input type="text"    id="filter-song"           placeholder="Filter by Song Title…" />
+    <input type="text"    id="filter-labels"         placeholder="Filter by Record Label…" />
+    <input type="text"    id="filter-contributors"   placeholder="Filter by Contributor…" />
+  </div>
+  <table id="collab-list-table" class="data-table">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Name</th>
+        <th>Start</th>
+        <th>End</th>
+        <th>Song</th>
+        <th>Labels</th>
+        <th>Contributors</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody><!-- populated by JS --></tbody>
+  </table>
+</section>
+
+<section id="collab-details-section" class="hidden">
+  <h3>Collaboration Details</h3>
+  <div id="collab-details"></div>
+  <div class="detail-actions">
+    <button id="edit-collab-btn"    class="btn-secondary">Edit</button>
+    <button id="delete-collab-btn"  class="btn-danger">Delete</button>
+    <button id="back-collab-list-btn" class="btn-light">Back to List</button>
+  </div>
+</section>
+
+<div id="collab-form-modal" class="modal hidden">
+  <div class="modal-content">
+    <h3 id="collab-modal-title">Add Collaboration</h3>
+    <form id="collab-form">
+      <input type="hidden" name="CollaborationID" />
+
+      <label>
+        Name:
+        <input type="text" name="CollaborationName" required />
+      </label>
+      <label>
+        Start Date:
+        <input type="date" name="StartDate" required />
+      </label>
+      <label>
+        End Date:
+        <input type="date" name="EndDate" />
+      </label>
+      <label>
+        Song Title:
+        <input type="text" name="SongTitle" />
+      </label>
+      <label>
+        Record Labels (comma-separated names):
+        <input type="text" name="RecordLabels" />
+      </label>
+      <label>
+        Contributors (comma-separated names):
+        <input type="text" name="Contributors" />
+      </label>
+      <label>
+        Description:
+        <textarea name="Description" rows="3"></textarea>
+      </label>
+
+      <div class="form-actions">
+        <button type="submit" class="btn-primary">Save</button>
+        <button type="button" id="collab-cancel-btn" class="btn-light">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
