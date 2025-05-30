@@ -88,6 +88,7 @@ INSERT INTO Song_Genre (Song_SongID, Genre) VALUES
   (1,'Dance'),
   (2,'Acoustic'),
   (2,'Indie'),
+  (3,'Rock'),
   (5,'Dream Pop'),
   (6,'EDM'),
   (6,'Electronic');
