@@ -153,3 +153,19 @@ FROM dbo.Collaboration c
 LEFT JOIN dbo.Song s
   ON s.SongID = c.Song_SongID;
 GO
+
+-- Dashboard View
+CREATE OR ALTER VIEW dbo.vw_DashboardCounts
+AS
+SELECT
+    /* Count of record labels */
+    (SELECT COUNT(*) FROM dbo.RecordLabel)         AS RecordLabelCount,
+    /* Count of employees */
+    (SELECT COUNT(*) FROM dbo.Employee)            AS EmployeeCount,
+    /* Count of songs */
+    (SELECT COUNT(*) FROM dbo.Song)                AS SongCount,
+    /* Count of contributors */
+    (SELECT COUNT(*) FROM dbo.Contributor)         AS ContributorCount,
+    /* Count of collaborations */
+    (SELECT COUNT(*) FROM dbo.Collaboration)       AS CollaborationCount;
+GO
