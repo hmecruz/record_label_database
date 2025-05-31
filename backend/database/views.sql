@@ -1,4 +1,6 @@
--- Record Labels View
+-- ================================================================
+-- vw_RecordLabels: view to list all record labels with their details
+-- ================================================================
 CREATE OR ALTER VIEW dbo.vw_RecordLabels
 AS
 SELECT
@@ -10,6 +12,38 @@ SELECT
     PhoneNumber
 FROM dbo.RecordLabel;
 GO
+
+
+-- ================================================================
+-- vw_RecordLabelDependencies: counts how many Employees & Collaborations reference a given Record Label
+-- ================================================================
+CREATE OR ALTER VIEW dbo.vw_RecordLabelDependencies
+AS
+SELECT
+    rl.RecordLabelID,
+    -- Count how many employees reference this label
+    ISNULL(emp.EmployeeCount, 0)           AS EmployeeCount,
+    -- Count how many collaboration‐label links exist for this label
+    ISNULL(collab.LinkCount, 0)            AS CollaborationCount
+FROM dbo.RecordLabel rl
+LEFT JOIN (
+    SELECT
+      e.RecordLabel_RecordLabelID AS LabelID,
+      COUNT(*)                   AS EmployeeCount
+    FROM dbo.Employee e
+    GROUP BY e.RecordLabel_RecordLabelID
+) AS emp
+  ON emp.LabelID = rl.RecordLabelID
+LEFT JOIN (
+    SELECT
+      rlc.RecordLabel_RecordLabelID2 AS LabelID,
+      COUNT(*)                         AS LinkCount
+    FROM dbo.RecordLabel_Collaboration rlc
+    GROUP BY rlc.RecordLabel_RecordLabelID2
+) AS collab
+  ON collab.LabelID = rl.RecordLabelID;
+GO
+
 
 -- Employees View
 CREATE OR ALTER VIEW dbo.vw_Employees

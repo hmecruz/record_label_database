@@ -5,8 +5,8 @@ CREATE TABLE RecordLabel (
     Name VARCHAR(255) NOT NULL UNIQUE,
     Location VARCHAR(255),
     Website VARCHAR(255) UNIQUE,
-    Email VARCHAR(255) UNIQUE,
-    PhoneNumber VARCHAR(50) UNIQUE
+    Email VARCHAR(255) NOT NULL UNIQUE,
+    PhoneNumber VARCHAR(50) NOT NULL UNIQUE
 );
 
 CREATE TABLE Song (

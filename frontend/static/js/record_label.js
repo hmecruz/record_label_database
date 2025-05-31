@@ -1,3 +1,5 @@
+// frontend/static/js/record_label.js
+
 import {
   listLabels,
   getLabel,
@@ -70,7 +72,7 @@ async function record_labelInit() {
       if (val) params[key] = val;
     }
     try {
-      const data = await listLabels(params);      // ← HERE we call GET /api/record_labels?…
+      const data = await listLabels(params);
       // ignore out-of-order responses
       if (fetchId !== currentFetchId) return;
       labels = data;
@@ -96,7 +98,7 @@ async function record_labelInit() {
 
     let label;
     try {
-      label = await getLabel(id);               // ← HERE we call GET /api/record_labels/{id}
+      label = await getLabel(id);
     } catch (err) {
       console.error("[API] getLabel failed", err);
       alert("Failed to load label details.");
@@ -110,21 +112,63 @@ async function record_labelInit() {
       <p><strong>Website:</strong> <a href="${label.Website}" target="_blank">${label.Website}</a></p>
       <p><strong>Email:</strong> ${label.Email}</p>
       <p><strong>Phone:</strong> ${label.PhoneNumber}</p>
-      <p><em>Removing this label will also remove its employees & collaborations.</em></p>
+      <p><em>Deleting this label will also remove its employees & collaboration links if any exist.</em></p>
     `;
 
     document.getElementById("edit-label-btn").onclick = () => openForm("Edit Label", label);
     document.getElementById("delete-label-btn").onclick = async () => {
+      // First attempt: try a normal delete (cascade=false). If dependencies exist, server returns 409 + JSON counts.
       if (!confirm(`Permanently remove "${label.Name}"?`)) return;
+
       try {
-        await deleteLabel(label.RecordLabelID);  // ← DELETE /api/record_labels/{id}
+        // Attempt non-cascade delete
+        await deleteLabel(label.RecordLabelID, { cascade: false });
+        // If successful, just refresh:
         await fetchAndRender();
         backToList();
-      } catch (err) {
-        console.error("[API] delete failed", err);
-        alert("Failed to delete label.");
+
+      } catch (res) {
+        // If `res` is not a Response object, rethrow
+        if (!(res instanceof Response)) {
+          console.error("[API] delete failed", res);
+          alert("Failed to delete label.");
+          return;
+        }
+
+        if (res.status === 409) {
+          // The server responded with HTTP 409 Conflict and a JSON payload { employeeCount, collaborationCount }
+          let info;
+          try {
+            info = await res.json();
+          } catch (parseErr) {
+            console.error("Failed to parse 409 JSON", parseErr);
+            alert("Cannot delete—unknown server response.");
+            return;
+          }
+          const { employeeCount, collaborationCount } = info;
+          const msg =
+            `This label is still used by ${employeeCount} employee${employeeCount===1?'':'s'} ` +
+            `and ${collaborationCount} collaboration link${collaborationCount===1?'':'s'}.` +
+            `\n\nPress OK to delete the label (and automatically remove those employees and collaboration‐links),\n` +
+            `or Cancel to keep everything.`;
+          if (confirm(msg)) {
+            try {
+              await deleteLabel(label.RecordLabelID, { cascade: true });
+              await fetchAndRender();
+              backToList();
+            } catch (err2) {
+              console.error("[API] cascade delete failed", err2);
+              alert("Failed to force‐delete label and its dependencies.");
+            }
+          }
+        } else {
+          // Some other HTTP error (e.g. 404, 500, etc.)
+          console.error("[API] delete failed", res);
+          alert("Failed to delete label.");
+        }
       }
     };
+
     document.getElementById("back-to-list-btn").onclick = backToList;
   }
 
@@ -168,9 +212,9 @@ async function record_labelInit() {
     const isEdit = Boolean(obj.RecordLabelID);
     try {
       if (isEdit) {
-        await updateLabel(obj.RecordLabelID, obj); // ← PUT /api/record_labels/{id}
+        await updateLabel(obj.RecordLabelID, obj);
       } else {
-        await createLabel(obj);                    // ← POST /api/record_labels
+        await createLabel(obj);
       }
       modal.classList.add("hidden");
       await fetchAndRender();

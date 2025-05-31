@@ -1,3 +1,5 @@
+# backend/endpoints/record_label_endpoints.py
+
 from flask import Blueprint, request, jsonify, abort
 from config.database_config import DatabaseConfig
 import pyodbc
@@ -148,21 +150,79 @@ def update_record_label(label_id):
 
 @record_label_api.route('/<int:label_id>', methods=['DELETE'])
 def delete_record_label(label_id):
+    """
+    DELETE logic with two modes:
+      ‣ Strict delete (no ?cascade=true):
+          • Call sp_CheckRecordLabelDependencies
+          • If employeeCount or collaborationCount > 0 → HTTP 409 with JSON {employeeCount, collaborationCount}
+          • Else → CALL sp_DeleteRecordLabel and return 204
+      ‣ Cascade delete (if ?cascade=true):
+          • CALL sp_DeleteRecordLabel_Cascade and return 204
+    """
+    cascade_flag = request.args.get('cascade', 'false').lower() == 'true'
+
     conn = DatabaseConfig.get_connection()
     try:
         cursor = conn.cursor()
-        try:
-            cursor.execute(
-                "EXEC dbo.sp_DeleteRecordLabel @ID=?",
-                label_id
-            )
-            conn.commit()
-        except pyodbc.ProgrammingError as pe:
-            if "50001" in str(pe):
-                abort(404, description=f"RecordLabel with ID {label_id} not found")
-            raise
 
-        return '', 204
+        if not cascade_flag:
+            # 1) Check dependencies
+            #    We expect sp_CheckRecordLabelDependencies to set two OUTPUT parameters:
+            #       @EmployeeCount, @CollaborationCount
+            result = cursor.execute(
+                """
+                DECLARE @E INT, @C INT;
+                EXEC dbo.sp_CheckRecordLabelDependencies
+                    @ID=?, 
+                    @EmployeeCount=@E OUTPUT, 
+                    @CollaborationCount=@C OUTPUT;
+                SELECT @E AS Emp, @C AS Collab;
+                """,
+                label_id
+            ).fetchone()
+
+            # If no row returned, treat as “label not found”
+            if result is None:
+                abort(404, description=f"RecordLabel with ID {label_id} not found")
+
+            employee_count      = result.Emp
+            collaboration_count = result.Collab
+
+            # 2a) If dependencies exist, return 409 + JSON counts
+            if (employee_count or collaboration_count):
+                return jsonify({
+                    "employeeCount": employee_count,
+                    "collaborationCount": collaboration_count
+                }), 409
+
+            # 2b) Otherwise, strictly delete
+            try:
+                cursor.execute(
+                    "EXEC dbo.sp_DeleteRecordLabel @ID=?",
+                    label_id
+                )
+                conn.commit()
+                return '', 204
+            except pyodbc.ProgrammingError as pe:
+                # If SP threw “50001 → not found”
+                if "50001" in str(pe):
+                    abort(404, description=f"RecordLabel with ID {label_id} not found")
+                raise
+
+        else:
+            # 3) cascade=true → delete dependents & delete the label
+            try:
+                cursor.execute(
+                    "EXEC dbo.sp_DeleteRecordLabel_Cascade @ID=?",
+                    label_id
+                )
+                conn.commit()
+                return '', 204
+            except pyodbc.ProgrammingError as pe:
+                # If cascade SP threw “50001 → not found”
+                if "50001" in str(pe):
+                    abort(404, description=f"RecordLabel with ID {label_id} not found")
+                raise
 
     finally:
         conn.close()
