@@ -1,8 +1,13 @@
+// frontend/static/js/endpoints/contributor_api.js
+
 const BASE = ''; // same-origin
 
 /**
  * List contributors with optional filters.
  * Supported filter keys: name, role, email, phone
+ * Each returned object has:
+ *   ContributorID, NIF, Name, DateOfBirth,
+ *   Email, PhoneNumber, RecordLabelName, Roles
  */
 export async function listContributors(filters = {}) {
   const params = new URLSearchParams();
@@ -27,6 +32,7 @@ export async function getContributor(id) {
  * Create a new contributor.
  * Expects an object with keys:
  *   Name, DateOfBirth, Email, PhoneNumber, Roles
+ * Returns the created object, including RecordLabelName (will be blank).
  */
 export async function createContributor(data) {
   const res = await fetch(`${BASE}/api/contributors`, {
@@ -41,6 +47,7 @@ export async function createContributor(data) {
 /**
  * Update an existing contributor.
  * `id` is the ContributorID; `data` same shape as createContributor.
+ * Returns the updated object, including RecordLabelName.
  */
 export async function updateContributor(id, data) {
   const res = await fetch(`${BASE}/api/contributors/${id}`, {

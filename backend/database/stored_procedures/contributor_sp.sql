@@ -10,10 +10,10 @@ BEGIN
 
     SELECT *
     FROM dbo.vw_Contributors
-    WHERE (@Name  IS NULL OR Name        LIKE '%' + @Name  + '%')
-      AND (@Role  IS NULL OR Roles       LIKE '%' + @Role  + '%')
-      AND (@Email IS NULL OR Email       LIKE '%' + @Email + '%')
-      AND (@Phone IS NULL OR PhoneNumber LIKE '%' + @Phone + '%');
+    WHERE (@Name  IS NULL OR Name           LIKE '%' + @Name  + '%')
+      AND (@Role  IS NULL OR Roles          LIKE '%' + @Role  + '%')
+      AND (@Email IS NULL OR Email          LIKE '%' + @Email + '%')
+      AND (@Phone IS NULL OR PhoneNumber    LIKE '%' + @Phone + '%');
 END
 GO
 
@@ -36,49 +36,47 @@ CREATE OR ALTER PROCEDURE dbo.sp_CreateContributor
     @DateOfBirth DATE           = NULL,
     @Email       VARCHAR(255)   = NULL,
     @PhoneNumber VARCHAR(50)    = NULL,
-    @Roles       VARCHAR(MAX)   = NULL,  -- comma-separated list
+    @Roles       VARCHAR(MAX)   = NULL,  -- comma-separated
     @NewID       INT            OUTPUT
 AS
 BEGIN
     SET NOCOUNT ON;
     BEGIN TRANSACTION;
     BEGIN TRY
-        -- 1) Person: generate a new NIF? We assume NIF provided by client, but here Person_NIF = NEWID
+        -- generate a new random NIF
         DECLARE @newNIF VARCHAR(20) = CONVERT(VARCHAR(20), NEWID());
         INSERT INTO dbo.Person (NIF, Name, DateOfBirth, Email, PhoneNumber)
         VALUES (@newNIF, @Name, @DateOfBirth, @Email, @PhoneNumber);
 
-        -- 2) Contributor
         INSERT INTO dbo.Contributor (Person_NIF)
         VALUES (@newNIF);
         SET @NewID = SCOPE_IDENTITY();
 
-        -- 3) Roles
         IF @Roles IS NOT NULL
         BEGIN
             DECLARE @r VARCHAR(50);
-            DECLARE curR CURSOR FOR
+            DECLARE cur CURSOR FOR
               SELECT LTRIM(RTRIM(value)) FROM STRING_SPLIT(@Roles, ',');
-            OPEN curR;
-            FETCH NEXT FROM curR INTO @r;
+            OPEN cur;
+            FETCH NEXT FROM cur INTO @r;
             WHILE @@FETCH_STATUS = 0
             BEGIN
                 IF @r = 'Artist'
-                    INSERT INTO dbo.Artist (Contributor_ContributorID) VALUES (@NewID);
+                    INSERT dbo.Artist (Contributor_ContributorID) VALUES (@NewID);
                 ELSE IF @r = 'Producer'
-                    INSERT INTO dbo.Producer (Contributor_ContributorID) VALUES (@NewID);
+                    INSERT dbo.Producer (Contributor_ContributorID) VALUES (@NewID);
                 ELSE IF @r = 'Songwriter'
-                    INSERT INTO dbo.Songwriter (Contributor_ContributorID) VALUES (@NewID);
-                FETCH NEXT FROM curR INTO @r;
+                    INSERT dbo.Songwriter (Contributor_ContributorID) VALUES (@NewID);
+                FETCH NEXT FROM cur INTO @r;
             END
-            CLOSE curR; DEALLOCATE curR;
+            CLOSE cur; DEALLOCATE cur;
         END
 
         COMMIT TRANSACTION;
     END TRY
     BEGIN CATCH
         ROLLBACK TRANSACTION;
-        THROW;  -- rethrow
+        THROW;
     END CATCH
 END
 GO
@@ -96,44 +94,45 @@ BEGIN
     SET NOCOUNT ON;
     BEGIN TRANSACTION;
     BEGIN TRY
-        -- Update Person fields
+        -- update person record
         UPDATE p
-        SET Name = @Name,
-            DateOfBirth = @DateOfBirth,
-            Email = @Email,
-            PhoneNumber = @PhoneNumber
+        SET
+          Name        = @Name,
+          DateOfBirth = @DateOfBirth,
+          Email       = @Email,
+          PhoneNumber = @PhoneNumber
         FROM dbo.Person p
-        JOIN dbo.Contributor c ON c.Person_NIF = p.NIF
+        JOIN dbo.Contributor c
+          ON c.Person_NIF = p.NIF
         WHERE c.ContributorID = @ID;
 
         IF @@ROWCOUNT = 0
-        BEGIN
-            ROLLBACK; RAISERROR('Contributor not found',16,1); RETURN;
-        END
+            THROW 50020, 'Contributor not found', 1;
 
-        -- Refresh role tables
-        DELETE FROM dbo.Artist      WHERE Contributor_ContributorID = @ID;
-        DELETE FROM dbo.Producer    WHERE Contributor_ContributorID = @ID;
-        DELETE FROM dbo.Songwriter  WHERE Contributor_ContributorID = @ID;
+        -- clear old roles
+        DELETE FROM dbo.Artist     WHERE Contributor_ContributorID = @ID;
+        DELETE FROM dbo.Producer   WHERE Contributor_ContributorID = @ID;
+        DELETE FROM dbo.Songwriter WHERE Contributor_ContributorID = @ID;
 
+        -- insert new roles
         IF @Roles IS NOT NULL
         BEGIN
             DECLARE @r VARCHAR(50);
-            DECLARE curR CURSOR FOR
+            DECLARE cur CURSOR FOR
               SELECT LTRIM(RTRIM(value)) FROM STRING_SPLIT(@Roles, ',');
-            OPEN curR;
-            FETCH NEXT FROM curR INTO @r;
+            OPEN cur;
+            FETCH NEXT FROM cur INTO @r;
             WHILE @@FETCH_STATUS = 0
             BEGIN
                 IF @r = 'Artist'
-                    INSERT INTO dbo.Artist (Contributor_ContributorID) VALUES (@ID);
+                    INSERT dbo.Artist (Contributor_ContributorID) VALUES (@ID);
                 ELSE IF @r = 'Producer'
-                    INSERT INTO dbo.Producer (Contributor_ContributorID) VALUES (@ID);
+                    INSERT dbo.Producer (Contributor_ContributorID) VALUES (@ID);
                 ELSE IF @r = 'Songwriter'
-                    INSERT INTO dbo.Songwriter (Contributor_ContributorID) VALUES (@ID);
-                FETCH NEXT FROM curR INTO @r;
+                    INSERT dbo.Songwriter (Contributor_ContributorID) VALUES (@ID);
+                FETCH NEXT FROM cur INTO @r;
             END
-            CLOSE curR; DEALLOCATE curR;
+            CLOSE cur; DEALLOCATE cur;
         END
 
         COMMIT TRANSACTION;
@@ -145,7 +144,7 @@ BEGIN
 END
 GO
 
--- -- DeleteContributor: Delete a contributor by ID
+-- DeleteContributor: Delete a contributor by ID
 CREATE OR ALTER PROCEDURE dbo.sp_DeleteContributor
     @ID INT
 AS
@@ -153,6 +152,6 @@ BEGIN
     SET NOCOUNT ON;
     DELETE FROM dbo.Contributor WHERE ContributorID = @ID;
     IF @@ROWCOUNT = 0
-        RAISERROR('Contributor not found',16,1);
+        THROW 50021, 'Contributor not found', 1;
 END
 GO

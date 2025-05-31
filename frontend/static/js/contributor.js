@@ -1,3 +1,5 @@
+// frontend/static/js/contributor.js
+
 import {
   listContributors,
   getContributor,
@@ -25,12 +27,13 @@ async function contributorInit() {
   const addBtn         = document.getElementById('add-contrib-btn');
   const cancelBtn      = document.getElementById('contrib-cancel-btn');
 
-  // Filter inputs
+  // Filter inputs (including new Record Label filter)
   const filters = {
     name:  document.getElementById('filter-name'),
     roles: document.getElementById('filter-roles'),
     email: document.getElementById('filter-email'),
-    phone: document.getElementById('filter-phone')
+    phone: document.getElementById('filter-phone'),
+    label: document.getElementById('filter-label')
   };
 
   let contributors = [];
@@ -41,6 +44,7 @@ async function contributorInit() {
     tbody.innerHTML = data.map(c => `
       <tr data-id="${c.ContributorID}">
         <td>${c.ContributorID}</td>
+        <td>${c.RecordLabelName || ''}</td>
         <td>${c.Name}</td>
         <td>${c.DateOfBirth || ''}</td>
         <td>${c.Email || ''}</td>
@@ -52,7 +56,7 @@ async function contributorInit() {
       .forEach(row => row.onclick = () => showDetails(+row.dataset.id));
   }
 
-  // Fetch from server with name/role/email/phone filters
+  // Fetch from API then apply client-side Record Label filter
   let fetchId = 0;
   async function fetchAndRender() {
     const myFetch = ++fetchId;
@@ -63,8 +67,17 @@ async function contributorInit() {
     if (filters.phone.value) params.phone = filters.phone.value;
 
     try {
-      const data = await listContributors(params);
-      if (myFetch !== fetchId) return;
+      let data = await listContributors(params);
+      if (myFetch !== fetchId) return; // stale
+
+      // client-side filter by RecordLabelName
+      const term = filters.label.value.trim().toLowerCase();
+      if (term) {
+        data = data.filter(c =>
+          (c.RecordLabelName || '').toLowerCase().includes(term)
+        );
+      }
+
       contributors = data;
       renderTable(contributors);
     } catch (err) {
@@ -73,7 +86,7 @@ async function contributorInit() {
     }
   }
 
-  // Show details
+  // Show details view
   async function showDetails(id) {
     listSection.classList.add('hidden');
     detailsSection.classList.remove('hidden');
@@ -90,6 +103,7 @@ async function contributorInit() {
 
     document.getElementById('contrib-details').innerHTML = `
       <p><strong>ID:</strong> ${c.ContributorID}</p>
+      <p><strong>Record Label:</strong> ${c.RecordLabelName || '-'}</p>
       <p><strong>Name:</strong> ${c.Name}</p>
       <p><strong>Date of Birth:</strong> ${c.DateOfBirth || '-'}</p>
       <p><strong>Email:</strong> ${c.Email || '-'}</p>
@@ -119,7 +133,7 @@ async function contributorInit() {
     renderTable(contributors);
   }
 
-  // Open Add/Edit form
+  // Open Add/Edit modal
   function openForm(title, c = {}) {
     document.getElementById('contrib-modal-title').textContent = title;
     form.reset();
@@ -154,7 +168,7 @@ async function contributorInit() {
     }
   };
 
-  // Wire filters
+  // Wire up all filters with debounce
   const deb = debounce(fetchAndRender, 300);
   Object.values(filters).forEach(inp => { if (inp) inp.oninput = deb; });
 
@@ -163,5 +177,5 @@ async function contributorInit() {
   console.log('[contributorInit] done');
 }
 
-// Expose for your main loader
+// expose to main loader
 window.contributorInit = contributorInit;

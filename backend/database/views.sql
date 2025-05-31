@@ -75,25 +75,81 @@ SELECT
     p.DateOfBirth,
     p.Email,
     p.PhoneNumber,
+    -- if this contributor is also an employee, get their label name
+    rl.Name AS RecordLabelName,
     -- aggregate roles
     STUFF(
-      COALESCE(a.Roles, '') + 
+      COALESCE(a.Roles, '') +
       COALESCE(pr.Roles, '') +
       COALESCE(sw.Roles, ''),
-      1, 2, ''  -- remove leading ", "
+      1, 2, ''
     ) AS Roles
 FROM dbo.Contributor c
-JOIN dbo.Person p ON p.NIF = c.Person_NIF
+JOIN dbo.Person p
+  ON p.NIF = c.Person_NIF
+LEFT JOIN dbo.Employee e
+  ON e.Person_NIF = p.NIF
+LEFT JOIN dbo.RecordLabel rl
+  ON rl.RecordLabelID = e.RecordLabel_RecordLabelID
 OUTER APPLY (
     SELECT ', ' + 'Artist'
-    WHERE EXISTS(SELECT 1 FROM dbo.Artist WHERE Contributor_ContributorID = c.ContributorID)
+    WHERE EXISTS(
+      SELECT 1
+      FROM dbo.Artist
+      WHERE Contributor_ContributorID = c.ContributorID
+    )
 ) AS a(Roles)
 OUTER APPLY (
     SELECT ', ' + 'Producer'
-    WHERE EXISTS(SELECT 1 FROM dbo.Producer WHERE Contributor_ContributorID = c.ContributorID)
+    WHERE EXISTS(
+      SELECT 1
+      FROM dbo.Producer
+      WHERE Contributor_ContributorID = c.ContributorID
+    )
 ) AS pr(Roles)
 OUTER APPLY (
     SELECT ', ' + 'Songwriter'
-    WHERE EXISTS(SELECT 1 FROM dbo.Songwriter WHERE Contributor_ContributorID = c.ContributorID)
+    WHERE EXISTS(
+      SELECT 1
+      FROM dbo.Songwriter
+      WHERE Contributor_ContributorID = c.ContributorID
+    )
 ) AS sw(Roles);
+GO
+
+-- Collaborations View
+GO
+CREATE OR ALTER VIEW dbo.vw_Collaborations
+AS
+SELECT
+    c.CollaborationID,
+    c.CollaborationName,
+    c.StartDate,
+    c.EndDate,
+    c.Description,
+    s.SongID,
+    s.Title AS SongTitle,
+    -- aggregate record labels
+    STUFF((
+      SELECT ', ' + rl.Name
+      FROM dbo.RecordLabel_Collaboration rlc
+      JOIN dbo.RecordLabel rl
+        ON rl.RecordLabelID = rlc.RecordLabel_RecordLabelID2
+      WHERE rlc.Collaboration_CollaborationID = c.CollaborationID
+      FOR XML PATH(''), TYPE
+    ).value('.', 'nvarchar(max)'), 1, 2, '') AS RecordLabels,
+    -- aggregate contributors
+    STUFF((
+      SELECT ', ' + p.Name
+      FROM dbo.Collaboration_Contributor cc
+      JOIN dbo.Contributor co
+        ON co.ContributorID = cc.Contributor_ContributorID
+      JOIN dbo.Person p
+        ON p.NIF = co.Person_NIF
+      WHERE cc.Collaboration_CollaborationID = c.CollaborationID
+      FOR XML PATH(''), TYPE
+    ).value('.', 'nvarchar(max)'), 1, 2, '') AS Contributors
+FROM dbo.Collaboration c
+LEFT JOIN dbo.Song s
+  ON s.SongID = c.Song_SongID;
 GO

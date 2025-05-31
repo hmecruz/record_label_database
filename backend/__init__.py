@@ -12,6 +12,7 @@ from backend.endpoints.record_label import record_label_api
 from backend.endpoints.employee import employee_api
 from backend.endpoints.songs import songs_api
 from backend.endpoints.contributors import contributors_api
+from backend.endpoints.collaborations import collab_api
 
 logger = get_logger(__name__)
 
@@ -31,5 +32,6 @@ def create_app():
     app.register_blueprint(employee_api)
     app.register_blueprint(songs_api)
     app.register_blueprint(contributors_api)
+    app.register_blueprint(collab_api)
 
     return app

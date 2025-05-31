@@ -11,16 +11,17 @@ contributors_api = Blueprint(
 def map_row_to_contributor(row):
     """
     Convert a row from vw_Contributors into a JSON-serializable dict.
-    Columns: ContributorID, NIF, Name, DateOfBirth, Email, PhoneNumber, Roles
+    Columns: ContributorID, NIF, Name, DateOfBirth, Email, PhoneNumber, RecordLabelName, Roles
     """
     return {
-        "ContributorID": row.ContributorID,
-        "NIF":           row.NIF,
-        "Name":          row.Name,
-        "DateOfBirth":   row.DateOfBirth.isoformat() if row.DateOfBirth else None,
-        "Email":         row.Email,
-        "PhoneNumber":   row.PhoneNumber,
-        "Roles":         row.Roles or ""
+        "ContributorID":    row.ContributorID,
+        "NIF":              row.NIF,
+        "Name":             row.Name,
+        "DateOfBirth":      row.DateOfBirth.isoformat() if row.DateOfBirth else None,
+        "Email":            row.Email,
+        "PhoneNumber":      row.PhoneNumber,
+        "RecordLabelName":  row.RecordLabelName or "",
+        "Roles":            row.Roles or ""
     }
 
 @contributors_api.route('', methods=['GET'])
@@ -75,7 +76,6 @@ def create_contributor():
     conn = DatabaseConfig.get_connection()
     try:
         cursor = conn.cursor()
-        # call create proc, capture new ID
         result = cursor.execute(
             "DECLARE @NewID INT; "
             "EXEC dbo.sp_CreateContributor "
@@ -116,7 +116,6 @@ def update_contributor(contrib_id):
             )
             conn.commit()
         except pyodbc.ProgrammingError as pe:
-            # RAISERROR('Contributor not found',...) produces ProgrammingError
             if 'Contributor not found' in str(pe):
                 abort(404, description=f"Contributor with ID {contrib_id} not found")
             raise
