@@ -5,7 +5,7 @@ const BASE = ''; // same-origin
 /**
  * List contributors with optional filters.
  * Supported filter keys: name, role, email, phone
- * Each returned object has:
+ * Each returned object includes:
  *   ContributorID, NIF, Name, DateOfBirth,
  *   Email, PhoneNumber, RecordLabelName, Roles
  */
@@ -31,8 +31,14 @@ export async function getContributor(id) {
 /**
  * Create a new contributor.
  * Expects an object with keys:
- *   Name, DateOfBirth, Email, PhoneNumber, Roles
- * Returns the created object, including RecordLabelName (will be blank).
+ *   NIF, Name, DateOfBirth, Email, PhoneNumber, Roles
+ *
+ * If the server finds a conflicting Person (same NIF but different fields),
+ * it will return HTTP 409 Conflict and a JSON payload describing:
+ *   { message, existingPerson, attempted, differences }
+ * So we simply “throw res” on a non‐2xx; the caller can inspect .status === 409.
+ *
+ * Returns the newly‐created contributor (with RecordLabelName, etc.)
  */
 export async function createContributor(data) {
   const res = await fetch(`${BASE}/api/contributors`, {
@@ -46,8 +52,9 @@ export async function createContributor(data) {
 
 /**
  * Update an existing contributor.
- * `id` is the ContributorID; `data` same shape as createContributor.
- * Returns the updated object, including RecordLabelName.
+ * `id` is the ContributorID; `data` has the same shape as createContributor.
+ *
+ * Returns the updated contributor record.
  */
 export async function updateContributor(id, data) {
   const res = await fetch(`${BASE}/api/contributors/${id}`, {

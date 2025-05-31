@@ -8,21 +8,23 @@
   <h3>All Contributors</h3>
   <div class="filter-row">
     <input type="text" id="filter-name"  placeholder="Filter by Name…" />
+    <input type="text" id="filter-roles" placeholder="Filter by Role…" />
     <input type="text" id="filter-label" placeholder="Filter by Record Label…" />
     <input type="text" id="filter-email" placeholder="Filter by Email…" />
     <input type="text" id="filter-phone" placeholder="Filter by Phone…" />
-    <input type="text" id="filter-roles" placeholder="Filter by Role…" />
+    <input type="text" id="filter-nif"   placeholder="Filter by NIF…" />
   </div>
   <table id="contrib-list-table" class="data-table">
     <thead>
       <tr>
         <th>ID</th>
-        <th>Record Label</th>
         <th>Name</th>
-        <th>Date of Birth</th>
+        <th>Roles</th>
+        <th>Record Label</th>
         <th>Email</th>
         <th>Phone</th>
-        <th>Roles</th>
+        <th>Date of Birth</th>
+        <th>NIF</th>
       </tr>
     </thead>
     <tbody><!-- JS will populate --></tbody>
@@ -46,27 +48,25 @@
     <h3 id="contrib-modal-title">Add Contributor</h3>
     <form id="contrib-form">
       <input type="hidden" name="ContributorID" />
-      <input type="hidden" name="NIF" />
 
       <label>
-        Name:
-        <input type="text" name="Name" required />
+        NIF: <input type="text" name="NIF" required />
       </label>
       <label>
-        Date of Birth:
-        <input type="date" name="DateOfBirth" />
+        Name: <input type="text" name="Name" required />
       </label>
       <label>
-        Email:
-        <input type="email" name="Email" />
+        Date of Birth: <input type="date" name="DateOfBirth" />
       </label>
       <label>
-        Phone:
-        <input type="tel" name="PhoneNumber" />
+        Email: <input type="email" name="Email" />
+      </label>
+      <label>
+        Phone: <input type="tel" name="PhoneNumber" />
       </label>
       <label>
         Roles (comma-separated: Artist, Producer, Songwriter):
-        <input type="text" name="Roles" />
+        <input type="text" name="Roles" required />
       </label>
 
       <div class="form-actions">

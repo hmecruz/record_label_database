@@ -98,7 +98,10 @@ OUTER APPLY (
 LEFT JOIN dbo.Collaboration col ON col.Song_SongID = s.SongID
 GO
 
+
+-- ================================================
 -- Contributors View
+-- ================================================
 GO
 CREATE OR ALTER VIEW dbo.vw_Contributors
 AS
@@ -111,7 +114,7 @@ SELECT
     p.PhoneNumber,
     -- if this contributor is also an employee, get their label name
     rl.Name AS RecordLabelName,
-    -- aggregate roles
+    -- aggregate roles (Artist, Producer, Songwriter) into a single comma-separated string
     STUFF(
       COALESCE(a.Roles, '') +
       COALESCE(pr.Roles, '') +
