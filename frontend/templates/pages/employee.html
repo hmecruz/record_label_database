@@ -6,29 +6,29 @@
 <section id="emp-list-section">
   <h3>All Employees</h3>
   <div class="filter-row">
-    <input type="text"  id="filter-nif"        placeholder="Filter by NIF…" />
     <input type="text"  id="filter-name"       placeholder="Filter by Name…" />
+    <input type="text"  id="filter-label"      placeholder="Filter by Label…" />
     <input type="text"  id="filter-jobtitle"   placeholder="Filter by Job Title…" />
-    <input type="text"  id="filter-department" placeholder="Filter by Department…" />
+    <input type="text"  id="filter-department" placeholder="Filter by Department…" />  
+    <input type="number" id="filter-salary"    placeholder="Min Salary…" min="0" step="100"/>
     <input type="text"  id="filter-email"      placeholder="Filter by Email…" />
     <input type="text"  id="filter-phone"      placeholder="Filter by Phone…" />
-    <input type="number" id="filter-salary"    placeholder="Min Salary…" min="0" step="100"/>
-    <input type="text"  id="filter-label"      placeholder="Filter by Label…" />
+    <input type="text"  id="filter-nif"        placeholder="Filter by NIF…" />
   </div>
   <table id="emp-list-table" class="data-table">
     <thead>
       <tr>
-        <th>ID</th>
-        <th>NIF</th>
+        <th>ID </th>
         <th>Name</th>
-        <th>Date of Birth</th>
+        <th>Record Label</th>
         <th>Job Title</th>
         <th>Department</th>
         <th>Salary</th>
         <th>Hire Date</th>
         <th>Email</th>
         <th>Phone</th>
-        <th>Record Label</th>
+        <th>Date of Birth</th>
+        <th>NIF</th>
       </tr>
     </thead>
     <tbody><!-- populated by JS --></tbody>

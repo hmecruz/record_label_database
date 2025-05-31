@@ -19,7 +19,6 @@ function debounce(fn, delay = 300) {
 async function employeeInit() {
   console.log('[employeeInit] start');
 
-  // Sections & controls
   const listSection    = document.getElementById('emp-list-section');
   const detailsSection = document.getElementById('emp-details-section');
   const modal          = document.getElementById('emp-form-modal');
@@ -27,25 +26,23 @@ async function employeeInit() {
   const addBtn         = document.getElementById('add-emp-btn');
   const cancelBtn      = document.getElementById('emp-cancel-btn');
 
-  // Filter inputs (no DOB filter here!)
+  // Updated order of filters
   const filterElems = {
-    nif:        document.getElementById('filter-nif'),
     name:       document.getElementById('filter-name'),
+    label:      document.getElementById('filter-label'),
     jobtitle:   document.getElementById('filter-jobtitle'),
     department: document.getElementById('filter-department'),
+    salary:     document.getElementById('filter-salary'),
     email:      document.getElementById('filter-email'),
     phone:      document.getElementById('filter-phone'),
-    salary:     document.getElementById('filter-salary'),
-    label:      document.getElementById('filter-label')
+    nif:        document.getElementById('filter-nif'),
   };
 
-  // Which filters go to the SP (everything except salary & label)
-  const serverKeys = ['nif','name','jobtitle','department','email','phone'];
+  const serverKeys = ['name', 'jobtitle', 'department', 'email', 'phone', 'nif'];
 
   let employees = [];
-  let labels    = [];
+  let labels = [];
 
-  // Populate "Record Label" <select> in the form
   async function populateLabelDropdown() {
     labels = await listLabels();
     const select = form.elements['RecordLabelID'];
@@ -57,33 +54,31 @@ async function employeeInit() {
     });
   }
 
-  // Render the table rows, including DateOfBirth
+  // Updated column order to match the table
   function renderTable(data) {
     const tbody = document.querySelector('#emp-list-table tbody');
     tbody.innerHTML = data.map(e => `
       <tr data-id="${e.EmployeeID}">
         <td>${e.EmployeeID}</td>
-        <td>${e.NIF}</td>
         <td>${e.Name}</td>
-        <td>${e.DateOfBirth || ''}</td>
+        <td>${e.RecordLabelName || ''}</td>
         <td>${e.JobTitle}</td>
         <td>${e.Department || ''}</td>
         <td>${e.Salary.toFixed(2)}</td>
         <td>${e.HireDate}</td>
         <td>${e.Email || ''}</td>
         <td>${e.PhoneNumber || ''}</td>
-        <td>${e.RecordLabelName || ''}</td>
+        <td>${e.DateOfBirth || ''}</td>
+        <td>${e.NIF}</td>
       </tr>
     `).join('');
     document.querySelectorAll('#emp-list-table tbody tr')
       .forEach(row => row.onclick = () => showDetails(+row.dataset.id));
   }
 
-  // Fetch from server, then apply client-side salary & label filtering
   let fetchId = 0;
   async function fetchAndRender() {
     const myFetch = ++fetchId;
-    // Build SP params
     const params = {};
     serverKeys.forEach(k => {
       const v = filterElems[k].value.trim();
@@ -92,9 +87,8 @@ async function employeeInit() {
 
     try {
       const srvRows = await listEmployees(params);
-      if (myFetch !== fetchId) return;  // discard stale
+      if (myFetch !== fetchId) return;
 
-      // Client-side salary & label filter
       const minSalary = parseFloat(filterElems.salary.value) || 0;
       const labelTerm = filterElems.label.value.trim().toLowerCase();
 
@@ -111,7 +105,6 @@ async function employeeInit() {
     }
   }
 
-  // Show details view (fetch fresh)
   async function showDetails(id) {
     listSection.classList.add('hidden');
     detailsSection.classList.remove('hidden');
@@ -155,7 +148,6 @@ async function employeeInit() {
     document.getElementById('back-emp-list-btn').onclick = backToList;
   }
 
-  // Return to the list
   function backToList() {
     detailsSection.classList.add('hidden');
     listSection.classList.remove('hidden');
@@ -163,7 +155,6 @@ async function employeeInit() {
     renderTable(employees);
   }
 
-  // Open Add/Edit form
   function openForm(title, emp = {}) {
     document.getElementById('emp-modal-title').textContent = title;
     form.reset();
@@ -181,11 +172,9 @@ async function employeeInit() {
     modal.classList.remove('hidden');
   }
 
-  // Handlers for New/Cancel
   addBtn.onclick = e => { e.preventDefault(); openForm('Add Employee'); };
   cancelBtn.onclick = e => { e.preventDefault(); modal.classList.add('hidden'); };
 
-  // Form submit → create/update
   form.onsubmit = async e => {
     e.preventDefault();
     const obj = Object.fromEntries(new FormData(form));
@@ -204,15 +193,12 @@ async function employeeInit() {
     }
   };
 
-  // Wire all filters to a debounced fetch
   const deb = debounce(fetchAndRender, 300);
   Object.values(filterElems).forEach(inp => { if (inp) inp.oninput = deb; });
 
-  // Initial load
   await populateLabelDropdown();
   await fetchAndRender();
   console.log('[employeeInit] done');
 }
 
-// Expose for your main loader
 window.employeeInit = employeeInit;

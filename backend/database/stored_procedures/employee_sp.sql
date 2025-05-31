@@ -36,20 +36,26 @@ GO
 
 -- CreateEmployee: Inserts a new employee and returns their ID.
 CREATE OR ALTER PROCEDURE dbo.sp_CreateEmployee
-    @NIF         VARCHAR(20),
-    @Name        VARCHAR(255),
-    @DateOfBirth DATE           = NULL,
-    @Email       VARCHAR(255)   = NULL,
-    @PhoneNumber VARCHAR(50)    = NULL,
-    @JobTitle    VARCHAR(100),
-    @Department  VARCHAR(100)   = NULL,
-    @Salary      DECIMAL(10,2),
-    @HireDate    DATE,
+    @NIF           VARCHAR(20),
+    @Name          VARCHAR(255),
+    @DateOfBirth   DATE           = NULL,
+    @Email         VARCHAR(255)   = NULL,
+    @PhoneNumber   VARCHAR(50)    = NULL,
+    @JobTitle      VARCHAR(100),
+    @Department    VARCHAR(100)   = NULL,
+    @Salary        DECIMAL(10,2),
+    @HireDate      DATE,
     @RecordLabelID INT,
-    @NewID       INT            OUTPUT
+    @NewID         INT            OUTPUT
 AS
 BEGIN
     SET NOCOUNT ON;
+
+    IF @DateOfBirth IS NOT NULL AND @HireDate < @DateOfBirth
+    BEGIN
+        RAISERROR('Hire date cannot be earlier than date of birth.', 16, 1);
+        RETURN;
+    END
 
     INSERT INTO dbo.Person (NIF, Name, DateOfBirth, Email, PhoneNumber)
     VALUES (@NIF, @Name, @DateOfBirth, @Email, @PhoneNumber);
@@ -63,21 +69,28 @@ BEGIN
 END
 GO
 
+
 -- UpdateEmployee: Updates an existing employee by their ID.
 CREATE OR ALTER PROCEDURE dbo.sp_UpdateEmployee
-    @ID          INT,
-    @Name        VARCHAR(255),
-    @DateOfBirth DATE           = NULL,
-    @Email       VARCHAR(255)   = NULL,
-    @PhoneNumber VARCHAR(50)    = NULL,
-    @JobTitle    VARCHAR(100),
-    @Department  VARCHAR(100)   = NULL,
-    @Salary      DECIMAL(10,2),
-    @HireDate    DATE,
+    @ID            INT,
+    @Name          VARCHAR(255),
+    @DateOfBirth   DATE           = NULL,
+    @Email         VARCHAR(255)   = NULL,
+    @PhoneNumber   VARCHAR(50)    = NULL,
+    @JobTitle      VARCHAR(100),
+    @Department    VARCHAR(100)   = NULL,
+    @Salary        DECIMAL(10,2),
+    @HireDate      DATE,
     @RecordLabelID INT
 AS
 BEGIN
     SET NOCOUNT ON;
+
+    IF @DateOfBirth IS NOT NULL AND @HireDate < @DateOfBirth
+    BEGIN
+        RAISERROR('Hire date cannot be earlier than date of birth.', 16, 1);
+        RETURN;
+    END
 
     UPDATE dbo.Person
     SET
