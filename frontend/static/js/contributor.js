@@ -69,20 +69,22 @@ async function contributorInit() {
     if (filters.roles.value) params.role  = filters.roles.value;
     if (filters.email.value) params.email = filters.email.value;
     if (filters.phone.value) params.phone = filters.phone.value;
-    // (We do not send `filter.label` or `filter.nif` to the SP—those get applied below.)
+    // (We do not send `filter.label` or `filter.nif` to the SP; those are applied below.)
 
     try {
       let data = await listContributors(params);
       if (myFetch !== fetchId) return; // stale
 
-      // Client-side filter by RecordLabelName
+      
+
+      // Client‐side filter by RecordLabelName
       const labelTerm = filters.label.value.trim().toLowerCase();
       if (labelTerm) {
         data = data.filter(c =>
           (c.RecordLabelName || '').toLowerCase().includes(labelTerm)
         );
       }
-      // Client-side filter by NIF
+      // Client‐side filter by NIF
       const nifTerm = filters.nif.value.trim().toLowerCase();
       if (nifTerm) {
         data = data.filter(c =>
@@ -146,21 +148,20 @@ async function contributorInit() {
     renderTable(contributors);
   }
 
-  // Open Add/Edit modal. Required fields are now NIF, Name, Roles.
+  // Open Add/Edit modal. Required fields: NIF, Name, Roles
   function openForm(title, c = {}) {
     document.getElementById('contrib-modal-title').textContent = title;
     form.reset();
 
-    // Hidden ContributorID (used for update)
+    // If editing, pre‐fill the fields
     form.elements['ContributorID'].value = c.ContributorID || '';
-
     form.elements['NIF'].value           = c.NIF || '';
     form.elements['Name'].value          = c.Name || '';
     form.elements['DateOfBirth'].value   = c.DateOfBirth || '';
     form.elements['Email'].value         = c.Email || '';
     form.elements['PhoneNumber'].value   = c.PhoneNumber || '';
     form.elements['Roles'].value         = c.Roles || '';
-    // No RecordLabelID field in the form anymore
+    // There is NO RecordLabel field here—it's determined automatically if Person is also an Employee
 
     modal.classList.remove('hidden');
   }
@@ -188,18 +189,121 @@ async function contributorInit() {
     }
 
     try {
+      // If editing an existing Contributor:
       if (data.ContributorID) {
-        // Update existing contributor
         await updateContributor(data.ContributorID, data);
-      } else {
-        // Create new contributor
-        await createContributor(data);
+        modal.classList.add('hidden');
+        await fetchAndRender();
+        backToList();
+        return;
       }
-      modal.classList.add('hidden');
-      await fetchAndRender();
-      backToList();
+
+      // Otherwise, attempt to create a new Contributor:
+      try {
+        await createContributor(data);
+        modal.classList.add('hidden');
+        await fetchAndRender();
+        backToList();
+      } catch (res) {
+        // If the server returned HTTP 409 Conflict, handle the “existing Person with same NIF but different fields” logic
+        if (res instanceof Response && res.status === 409) {
+          let payload;
+          try {
+            payload = await res.json();
+          } catch {
+            alert("Unexpected server response. Please try again.");
+            return;
+          }
+
+          const existingPerson = payload.existingPerson;
+          const incomingData   = payload.incomingData;
+
+          // Build the prompt:
+          let msg =
+            `A Person already exists in our database with NIF ${existingPerson.NIF}.\n` +
+            `Their current fields are:\n` +
+            `  Name: ${existingPerson.Name}\n` +
+            `  DateOfBirth: ${existingPerson.DateOfBirth || '(none)'}\n` +
+            `  Email: ${existingPerson.Email || '(none)'}\n` +
+            `  Phone: ${existingPerson.PhoneNumber || '(none)'}\n\n` +
+            `You are trying to register a Contributor with:\n` +
+            `  Name: ${incomingData.Name}\n` +
+            `  DateOfBirth: ${incomingData.DateOfBirth || '(none)'}\n` +
+            `  Email: ${incomingData.Email || '(none)'}\n` +
+            `  Phone: ${incomingData.PhoneNumber || '(none)'}\n\n` +
+            `Would you like to:\n` +
+            `  (A) Keep the existing Person fields and simply add the Contributor entry under NIF ${existingPerson.NIF},\n` +
+            `  (B) Overwrite the Person’s fields with these new values, or\n` +
+            `  (C) Cancel?`;
+
+          // Prompt the user for A/B/C:
+          const choice = prompt(
+            msg +
+            "\n\nType A for “keep old”, B for “overwrite”, or C to cancel."
+          );
+          if (!choice) {
+            // User pressed Cancel in the prompt
+            return;
+          }
+
+          const cUpper = choice.trim().toUpperCase();
+          if (cUpper === 'A') {
+            // Choice A: Keep the existing Person data, just add Contributor under that NIF
+            try {
+              await createContributor(incomingData, '?useOldPerson=true');
+              modal.classList.add('hidden');
+              await fetchAndRender();
+              backToList();
+            } catch (err2) {
+              console.error('[API] keep‐old‐person failed', err2);
+              alert("Failed to add Contributor under existing Person.");
+            }
+          }
+          else if (cUpper === 'B') {
+            // Choice B: Overwrite Person’s data, then add Contributor under that same NIF
+            try {
+              // 1) Overwrite Person via a PUT to /api/persons/:nif
+              //    (Assumes you have a /api/persons/<nif> endpoint that updates p.Name, p.DateOfBirth, etc.)
+              const updatePersonRes = await fetch(
+                `/api/persons/${existingPerson.NIF}`,
+                {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    Name:         incomingData.Name,
+                    DateOfBirth:  incomingData.DateOfBirth,
+                    Email:        incomingData.Email,
+                    PhoneNumber:  incomingData.PhoneNumber
+                  })
+                }
+              );
+              if (!updatePersonRes.ok) {
+                throw updatePersonRes;
+              }
+
+              // 2) Now add Contributor under that same NIF
+              await createContributor(incomingData, '?useOldPerson=true');
+              modal.classList.add('hidden');
+              await fetchAndRender();
+              backToList();
+            } catch (err3) {
+              console.error('[API] overwrite failed', err3);
+              alert("Failed to overwrite Person or add Contributor.");
+            }
+          }
+          else {
+            // Choice C: Cancel → do nothing
+            return;
+          }
+        }
+        else {
+          // Some other HTTP error (400, 500, etc.)
+          console.error('[API] createContributor failed', res);
+          alert('Failed to save contributor.');
+        }
+      }
     } catch (err) {
-      console.error('[API] saveContributor failed', err);
+      console.error('[API] saveContributor failed (unexpected)', err);
       alert('Failed to save contributor.');
     }
   };
@@ -213,5 +317,5 @@ async function contributorInit() {
   console.log('[contributorInit] done');
 }
 
-// expose to main loader
+// Expose for main loader
 window.contributorInit = contributorInit;

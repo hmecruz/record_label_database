@@ -102,7 +102,6 @@ GO
 -- ================================================
 -- Contributors View
 -- ================================================
-GO
 CREATE OR ALTER VIEW dbo.vw_Contributors
 AS
 SELECT
@@ -114,7 +113,7 @@ SELECT
     p.PhoneNumber,
     -- if this contributor is also an employee, get their label name
     rl.Name AS RecordLabelName,
-    -- aggregate roles (Artist, Producer, Songwriter) into a single comma-separated string
+    -- aggregate roles
     STUFF(
       COALESCE(a.Roles, '') +
       COALESCE(pr.Roles, '') +
@@ -131,24 +130,21 @@ LEFT JOIN dbo.RecordLabel rl
 OUTER APPLY (
     SELECT ', ' + 'Artist'
     WHERE EXISTS(
-      SELECT 1
-      FROM dbo.Artist
+      SELECT 1 FROM dbo.Artist
       WHERE Contributor_ContributorID = c.ContributorID
     )
 ) AS a(Roles)
 OUTER APPLY (
     SELECT ', ' + 'Producer'
     WHERE EXISTS(
-      SELECT 1
-      FROM dbo.Producer
+      SELECT 1 FROM dbo.Producer
       WHERE Contributor_ContributorID = c.ContributorID
     )
 ) AS pr(Roles)
 OUTER APPLY (
     SELECT ', ' + 'Songwriter'
     WHERE EXISTS(
-      SELECT 1
-      FROM dbo.Songwriter
+      SELECT 1 FROM dbo.Songwriter
       WHERE Contributor_ContributorID = c.ContributorID
     )
 ) AS sw(Roles);

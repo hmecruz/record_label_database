@@ -32,16 +32,18 @@ export async function getContributor(id) {
  * Create a new contributor.
  * Expects an object with keys:
  *   NIF, Name, DateOfBirth, Email, PhoneNumber, Roles
+ * Optionally append a query string, e.g. '?useOldPerson=true' or '?overwritePerson=true'.
  *
  * If the server finds a conflicting Person (same NIF but different fields),
- * it will return HTTP 409 Conflict and a JSON payload describing:
- *   { message, existingPerson, attempted, differences }
- * So we simply “throw res” on a non‐2xx; the caller can inspect .status === 409.
+ * it will return HTTP 409 Conflict with JSON payload describing:
+ *   { message, existingPerson, incomingData }
+ * The caller can inspect res.status === 409 and handle accordingly.
  *
- * Returns the newly‐created contributor (with RecordLabelName, etc.)
+ * Returns the newly‐created contributor (with RecordLabelName, etc.) on success.
  */
-export async function createContributor(data) {
-  const res = await fetch(`${BASE}/api/contributors`, {
+export async function createContributor(data, queryString = '') {
+  const url = `${BASE}/api/contributors${queryString}`;
+  const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
@@ -52,9 +54,9 @@ export async function createContributor(data) {
 
 /**
  * Update an existing contributor.
- * `id` is the ContributorID; `data` has the same shape as createContributor.
+ * `id` is the ContributorID; `data` has same keys as createContributor.
  *
- * Returns the updated contributor record.
+ * Returns the updated contributor object.
  */
 export async function updateContributor(id, data) {
   const res = await fetch(`${BASE}/api/contributors/${id}`, {
