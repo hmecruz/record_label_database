@@ -75,7 +75,7 @@ async function contributorInit() {
       let data = await listContributors(params);
       if (myFetch !== fetchId) return; // stale
 
-      
+      data.sort((a, b) => a.ContributorID - b.ContributorID);
 
       // Client‐side filter by RecordLabelName
       const labelTerm = filters.label.value.trim().toLowerCase();

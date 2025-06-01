@@ -4,6 +4,9 @@ from flask import Blueprint, request, jsonify, abort
 from config.database_config import DatabaseConfig
 import pyodbc
 
+from config.logger import get_logger
+logger = get_logger(__name__)
+
 contributors_api = Blueprint(
     'contributors_api',
     __name__,
@@ -12,7 +15,7 @@ contributors_api = Blueprint(
 
 def map_row_to_contributor(row):
     """
-    Convert a row from vw_Contributors into a JSON‐serializable dict.
+    Convert a row from vw_Contributors into a JSON-serializable dict.
     Columns: ContributorID, NIF, Name, DateOfBirth, Email, PhoneNumber, RecordLabelName, Roles
     """
     return {
@@ -33,6 +36,7 @@ def list_contributors():
     email = request.args.get('email')
     phone = request.args.get('phone')
 
+    logger.debug(f"list_contributors called with filters: name={name}, role={role}, email={email}, phone={phone}")
     conn = DatabaseConfig.get_connection()
     try:
         cursor = conn.cursor()
@@ -42,12 +46,17 @@ def list_contributors():
             name, role, email, phone
         )
         rows = cursor.fetchall()
-        return jsonify([map_row_to_contributor(r) for r in rows]), 200
+        results = [map_row_to_contributor(r) for r in rows]
+        return jsonify(results), 200
+    except pyodbc.Error as e:
+        logger.exception("Database error in list_contributors")
+        abort(500, description="Internal server error while fetching contributors.")
     finally:
         conn.close()
 
 @contributors_api.route('/<int:contrib_id>', methods=['GET'])
 def get_contributor(contrib_id):
+    logger.debug(f"get_contributor called with ID={contrib_id}")
     conn = DatabaseConfig.get_connection()
     try:
         cursor = conn.cursor()
@@ -57,8 +66,12 @@ def get_contributor(contrib_id):
         )
         row = cursor.fetchone()
         if not row:
+            logger.info(f"Contributor with ID {contrib_id} not found in GET")
             abort(404, description=f"Contributor with ID {contrib_id} not found")
         return jsonify(map_row_to_contributor(row)), 200
+    except pyodbc.Error as e:
+        logger.exception(f"Database error in get_contributor ID={contrib_id}")
+        abort(500, description="Internal server error while fetching contributor.")
     finally:
         conn.close()
 
@@ -71,13 +84,17 @@ def create_contributor():
       3) overwritePerson=true: update Person first, then call sp_AddContributorFromExistingPerson.
     """
     data = request.get_json() or {}
+    logger.debug(f"create_contributor payload: {data} | args: {request.args}")
 
     # Basic validation
     if not data.get('NIF'):
+        logger.warning("create_contributor missing 'NIF'")
         abort(400, description="Field 'NIF' is required")
     if not data.get('Name'):
+        logger.warning("create_contributor missing 'Name'")
         abort(400, description="Field 'Name' is required")
     if not data.get('Roles'):
+        logger.warning("create_contributor missing 'Roles'")
         abort(400, description="Field 'Roles' is required")
 
     nif   = data['NIF'].strip()
@@ -87,15 +104,16 @@ def create_contributor():
     phone = data.get('PhoneNumber')
     roles = data.get('Roles')
 
-    use_old_person     = request.args.get('useOldPerson', '').lower() == 'true'
-    overwrite_person   = request.args.get('overwritePerson', '').lower() == 'true'
+    # query flags
+    use_old_person   = request.args.get('useOldPerson', '').lower() == 'true'
+    overwrite_person = request.args.get('overwritePerson', '').lower() == 'true'
 
     # 1) If overwritePerson=true, first update the Person row to the new fields:
     if overwrite_person:
+        logger.debug(f"overwrite_person=True: updating Person {nif} first")
         conn = DatabaseConfig.get_connection()
         try:
             cursor = conn.cursor()
-            # We assume Person with that NIF exists. If not, this will affect 0 rows.
             cursor.execute(
                 """
                 UPDATE dbo.Person
@@ -105,20 +123,22 @@ def create_contributor():
                 name, dob, email, phone, nif
             )
             if cursor.rowcount == 0:
-                # If no Person row was updated, abort with 404.
+                logger.info(f"No Person found with NIF {nif} to overwrite")
                 abort(404, description=f"No Person found with NIF {nif} to overwrite.")
             conn.commit()
         except pyodbc.Error as e:
+            logger.exception(f"Failed to overwrite Person {nif}")
             conn.rollback()
-            abort(500, description="Failed to overwrite Person: " + str(e))
+            abort(500, description="Failed to overwrite Person.")
         finally:
             conn.close()
 
-        # Now that Person is updated, we fall through to "useOldPerson" behavior:
+        # Now that Person is updated, we fall through to “useOldPerson” behavior
         use_old_person = True
 
-    # 2) If useOldPerson=true, skip sp_CreateContributor entirely and call sp_AddContributorFromExistingPerson:
+    # 2) If useOldPerson=true, skip sp_CreateContributor and call sp_AddContributorFromExistingPerson
     if use_old_person:
+        logger.debug(f"use_old_person=True: adding contributor from existing Person {nif}")
         conn = DatabaseConfig.get_connection()
         try:
             cursor = conn.cursor()
@@ -126,7 +146,7 @@ def create_contributor():
                 """
                 DECLARE @NewCID INT;
                 EXEC dbo.sp_AddContributorFromExistingPerson
-                  @NIF = ?,
+                  @NIF = ?, 
                   @Roles = ?,
                   @NewID = @NewCID OUTPUT;
                 SELECT @NewCID AS ContributorID;
@@ -135,21 +155,24 @@ def create_contributor():
             )
             row = result.fetchone()
             conn.commit()
-        except pyodbc.IntegrityError as e:
+        except pyodbc.IntegrityError as ie:
+            logger.warning(f"IntegrityError adding contributor from existing Person {nif}: {ie}")
             conn.rollback()
-            abort(400, description="Failed to add Contributor under existing Person: " + str(e))
-        except pyodbc.ProgrammingError as pe:
+            abort(400, description="Failed to add Contributor under existing Person.")
+        except pyodbc.Error as e:
+            logger.exception(f"Error adding contributor from existing Person {nif}")
             conn.rollback()
-            # Possible “Person not found” or FK issue:
-            abort(404, description="Cannot add Contributor for NIF " + nif + ": " + str(pe))
+            abort(500, description=f"Cannot add Contributor for Person {nif}.")
         finally:
             conn.close()
 
         if not row or row.ContributorID is None:
+            logger.error(f"No ContributorID returned when adding from existing Person {nif}")
             abort(500, description="Unexpected error: no ContributorID returned.")
         return get_contributor(row.ContributorID)
 
     # 3) Normal path: call sp_CreateContributor and check for conflict
+    logger.debug(f"Normal create path: calling sp_CreateContributor for NIF={nif}")
     conn = DatabaseConfig.get_connection()
     try:
         cursor = conn.cursor()
@@ -182,20 +205,25 @@ def create_contributor():
         )
         row = result.fetchone()
         conn.commit()
-    except pyodbc.IntegrityError as e:
+    except pyodbc.IntegrityError as ie:
+        logger.warning(f"IntegrityError in sp_CreateContributor for NIF={nif}: {ie}")
         conn.rollback()
-        abort(400, description=str(e))
+        abort(400, description=str(ie))
+    except pyodbc.Error as e:
+        logger.exception(f"Database error in sp_CreateContributor for NIF={nif}")
+        conn.rollback()
+        abort(500, description="Internal error while creating contributor.")
     finally:
         conn.close()
 
-    # Unpack SP outputs:
-    new_id      = row.NewID         # may be NULL if conflict
-    person_nif  = row.PersonNIF
-    existing    = bool(row.Existing)
-    conflict    = bool(row.Conflict)
+    new_id     = row.NewID         # may be NULL if conflict
+    person_nif = row.PersonNIF
+    existing   = bool(row.Existing)
+    conflict   = bool(row.Conflict)
 
-    # 3a) If conflict=1, return HTTP 409 + JSON describing existing Person vs incoming data
+    # 3a) If conflict = 1, return HTTP 409 + JSON describing mismatch
     if conflict:
+        logger.info(f"Conflict detected for NIF {person_nif} (incoming vs existing Person).")
         conn = DatabaseConfig.get_connection()
         try:
             cursor = conn.cursor()
@@ -205,6 +233,7 @@ def create_contributor():
             )
             p = cursor.fetchone()
             if not p:
+                logger.error(f"Person unexpectedly not found ({person_nif}) after conflict")
                 abort(500, description="Person unexpectedly not found after conflict.")
             existing_person = {
                 "NIF":          p.NIF,
@@ -214,6 +243,9 @@ def create_contributor():
                 "PhoneNumber":  p.PhoneNumber,
                 "ContributorID": p.ContributorID  # may be NULL
             }
+        except pyodbc.Error as e:
+            logger.exception(f"Error fetching Person {person_nif} after conflict")
+            abort(500, description="Internal error retrieving existing Person.")
         finally:
             conn.close()
 
@@ -235,9 +267,9 @@ def create_contributor():
             409
         )
 
-    # 3b) If existing=1 and new_id is NULL → no conflict and Person existed, but SP_CreateContributor did NOT auto‐insert a Contributor row.
-    # In that case, SP must have matched “fields exactly.” We now insert the Contributor via sp_AddContributorFromExistingPerson.
+    # 3b) If existing=1 and new_id is NULL → Person existed, fields matched, but the SP did not create Contributor row.
     if existing and (new_id is None):
+        logger.debug(f"Existing Person {person_nif} matched exactly; adding Contributor now.")
         conn = DatabaseConfig.get_connection()
         try:
             cursor = conn.cursor()
@@ -255,26 +287,32 @@ def create_contributor():
             row2 = result2.fetchone()
             conn.commit()
         except pyodbc.Error as e:
+            logger.exception(f"Failed to add Contributor for existing Person {person_nif}")
             conn.rollback()
-            abort(500, description="Failed to add Contributor for existing Person: " + str(e))
+            abort(500, description="Failed to add Contributor for existing Person.")
         finally:
             conn.close()
 
         if not row2 or row2.ContributorID is None:
+            logger.error(f"No ContributorID returned on add‐existing path for Person {person_nif}")
             abort(500, description="Unexpected error: no ContributorID returned on add‐existing path.")
         return get_contributor(row2.ContributorID)
 
-    # 3c) Otherwise, new_id must be non‐NULL (either we just created Person+Contributor, or Person was already Contributor).
+    # 3c) Otherwise, new_id must be non‐NULL (Person+Contributor just created, or Person was already Contributor).
     if new_id is None:
-        # Defensive check—should not happen
+        logger.error("sp_CreateContributor returned NULL ContributorID without conflict/exists")
         abort(500, description="Unexpected internal error: ContributorID is null.")
+    logger.debug(f"Successfully created new Contributor ID={new_id}")
     return get_contributor(new_id)
 
 
 @contributors_api.route('/<int:contrib_id>', methods=['PUT'])
 def update_contributor(contrib_id):
     data = request.get_json() or {}
+    logger.debug(f"update_contributor called for ID={contrib_id} with data={data}")
+
     if not data.get('NIF'):
+        logger.warning("update_contributor missing 'NIF'")
         abort(400, description="Field 'NIF' is required")
     if not data.get('Name'):
         abort(400, description="Field 'Name' is required")
@@ -300,8 +338,13 @@ def update_contributor(contrib_id):
             conn.commit()
         except pyodbc.ProgrammingError as pe:
             if 'Contributor not found' in str(pe):
+                logger.info(f"update_contributor: Contributor ID={contrib_id} not found")
                 abort(404, description=f"Contributor with ID {contrib_id} not found")
+            logger.exception(f"ProgrammingError in sp_UpdateContributor ID={contrib_id}")
             raise
+    except pyodbc.Error as e:
+        logger.exception(f"Database error updating Contributor ID={contrib_id}")
+        abort(500, description="Internal error while updating contributor.")
     finally:
         conn.close()
 
@@ -310,6 +353,7 @@ def update_contributor(contrib_id):
 
 @contributors_api.route('/<int:contrib_id>', methods=['DELETE'])
 def delete_contributor(contrib_id):
+    logger.debug(f"delete_contributor called for ID={contrib_id}")
     conn = DatabaseConfig.get_connection()
     try:
         cursor = conn.cursor()
@@ -321,8 +365,13 @@ def delete_contributor(contrib_id):
             conn.commit()
         except pyodbc.ProgrammingError as pe:
             if 'Contributor not found' in str(pe):
+                logger.info(f"delete_contributor: Contributor ID={contrib_id} not found")
                 abort(404, description=f"Contributor with ID {contrib_id} not found")
+            logger.exception(f"ProgrammingError in sp_DeleteContributor ID={contrib_id}")
             raise
         return '', 204
+    except pyodbc.Error as e:
+        logger.exception(f"Database error deleting Contributor ID={contrib_id}")
+        abort(500, description="Internal error while deleting contributor.")
     finally:
         conn.close()

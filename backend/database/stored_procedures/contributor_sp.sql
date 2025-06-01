@@ -1,5 +1,5 @@
 -- ================================================
--- GetContributors: Fetch contributors with optional filters
+-- sp_GetContributors: Fetch contributors with optional filters
 -- ================================================
 CREATE OR ALTER PROCEDURE dbo.sp_GetContributors
     @Name   VARCHAR(255) = NULL,
@@ -20,7 +20,7 @@ END
 GO
 
 -- ================================================
--- GetContributorByID: Fetch a single contributor by ContributorID
+-- sp_GetContributorByID: Fetch a single contributor by ContributorID
 -- ================================================
 CREATE OR ALTER PROCEDURE dbo.sp_GetContributorByID
     @ID INT
@@ -35,7 +35,7 @@ END
 GO
 
 -- ================================================
--- 4) sp_GetPersonByNIF: Helper to fetch Person (& any ContributorID) by NIF
+-- sp_GetPersonByNIF: Helper to fetch Person (& any ContributorID) by NIF
 -- ================================================
 CREATE OR ALTER PROCEDURE dbo.sp_GetPersonByNIF
     @NIF VARCHAR(20)
@@ -58,10 +58,10 @@ END
 GO
 
 -- ================================================
--- 5) sp_AddContributorFromExistingPerson:
---    Given a Person’s @NIF, insert exactly one
---    new Contributor and the comma‐separated @Roles.
---    Returns @NewID = newly created ContributorID.
+-- sp_AddContributorFromExistingPerson:
+--   Given a Person’s @NIF, insert exactly one
+--   new Contributor and the comma-separated @Roles.
+--   Returns @NewID = newly created ContributorID.
 -- ================================================
 CREATE OR ALTER PROCEDURE dbo.sp_AddContributorFromExistingPerson
     @NIF       VARCHAR(20),
@@ -89,11 +89,22 @@ BEGIN
             WHILE @@FETCH_STATUS = 0
             BEGIN
                 IF @r = 'Artist'
-                    INSERT dbo.Artist (Contributor_ContributorID) VALUES (@NewID);
+                BEGIN
+                    -- Give each new Artist a unique default StageName
+                    INSERT dbo.Artist 
+                      (Contributor_ContributorID, StageName)
+                    VALUES 
+                      (@NewID, CONCAT('Artist_', CAST(@NewID AS VARCHAR(20))));
+                END
                 ELSE IF @r = 'Producer'
+                BEGIN
                     INSERT dbo.Producer (Contributor_ContributorID) VALUES (@NewID);
+                END
                 ELSE IF @r = 'Songwriter'
+                BEGIN
                     INSERT dbo.Songwriter (Contributor_ContributorID) VALUES (@NewID);
+                END
+
                 FETCH NEXT FROM cur INTO @r;
             END
             CLOSE cur; 
@@ -110,18 +121,18 @@ END
 GO
 
 -- ================================================
--- 6) sp_CreateContributor:
---    Handles three cases:
---      A) NIF is brand‐new → insert Person + Contributor + Roles
---      B) NIF already exists as Person AND already has a Contributor → return that ContributorID
---      C) NIF exists as Person but no Contributor yet → compare incoming Person fields to existing;
---           • if identical → insert new Contributor + Roles
---           • if different → signal conflict and return existing Person data
---    Outputs:
---      @ContributorID  = newly inserted ContributorID (or existing slug)
---      @PersonNIF      = the Person’s NIF
---      @Existing       = 0 (newly created) or 1 (Person already existed)
---      @Conflict       = 1 if Person fields differ → caller must handle “keep vs overwrite vs cancel.”
+-- sp_CreateContributor:
+--   Handles three cases:
+--     A) NIF is brand-new → insert Person + Contributor + Roles
+--     B) NIF already exists as Person AND already has a Contributor → return that ContributorID
+--     C) NIF exists as Person but no Contributor yet → compare incoming Person fields to existing;
+--          • if identical → insert new Contributor + Roles
+--          • if different → signal conflict and return existing Person data
+--   Outputs:
+--     @ContributorID  = newly inserted ContributorID (or existing slug)
+--     @PersonNIF      = the Person’s NIF
+--     @Existing       = 0 (newly created) or 1 (Person already existed)
+--     @Conflict       = 1 if Person fields differ → caller must handle “keep vs overwrite vs cancel.”
 -- ================================================
 CREATE OR ALTER PROCEDURE dbo.sp_CreateContributor
 (
@@ -140,7 +151,7 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- 1) If a non‐NULL @NIF was supplied, check if that Person already exists
+    -- 1) If a non-NULL @NIF was supplied, check if that Person already exists
     IF @NIF IS NOT NULL AND EXISTS (SELECT 1 FROM dbo.Person WHERE NIF = @NIF)
     BEGIN
         -- 1a) If a Contributor record for that Person already exists, return immediately
@@ -172,7 +183,7 @@ BEGIN
         FROM dbo.Person p
         WHERE p.NIF = @NIF;
 
-        -- If all fields match (including NULLs), create the Contributor directly:
+        -- If all fields match exactly, create the Contributor directly:
         IF (ISNULL(@existingName, '') = ISNULL(@Name, ''))
            AND (ISNULL(CONVERT(VARCHAR(10), @existingDOB, 120), '') = ISNULL(CONVERT(VARCHAR(10), @DateOfBirth, 120), ''))
            AND (ISNULL(@existingEmail, '') = ISNULL(@Email, ''))
@@ -230,11 +241,22 @@ BEGIN
             WHILE @@FETCH_STATUS = 0
             BEGIN
                 IF @r = 'Artist'
-                    INSERT dbo.Artist (Contributor_ContributorID) VALUES (@ContributorID);
+                BEGIN
+                    -- Give each new Artist a unique default StageName
+                    INSERT dbo.Artist 
+                      (Contributor_ContributorID, StageName)
+                    VALUES 
+                      (@ContributorID, CONCAT('Artist_', CAST(@ContributorID AS VARCHAR(20))));
+                END
                 ELSE IF @r = 'Producer'
+                BEGIN
                     INSERT dbo.Producer (Contributor_ContributorID) VALUES (@ContributorID);
+                END
                 ELSE IF @r = 'Songwriter'
+                BEGIN
                     INSERT dbo.Songwriter (Contributor_ContributorID) VALUES (@ContributorID);
+                END
+
                 FETCH NEXT FROM cur INTO @r;
             END
             CLOSE cur;
@@ -250,9 +272,8 @@ BEGIN
 END
 GO
 
-
 -- ================================================
--- UpdatePerson: If the user chooses to overwrite an existing Person’s fields
+-- sp_UpdatePerson: Update a Person’s basic fields by NIF
 -- ================================================
 CREATE OR ALTER PROCEDURE dbo.sp_UpdatePerson
     @NIF         VARCHAR(20),
@@ -278,7 +299,7 @@ END
 GO
 
 -- ================================================
--- DeleteContributor: Delete a contributor by ContributorID
+-- sp_DeleteContributor: Delete a contributor by ContributorID
 -- ================================================
 CREATE OR ALTER PROCEDURE dbo.sp_DeleteContributor
     @ID INT
