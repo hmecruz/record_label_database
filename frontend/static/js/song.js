@@ -4,6 +4,7 @@
 import {
   listSongs,
   getSong,
+  getSongDependencies,
   createSong,
   updateSong,
   deleteSong
@@ -49,7 +50,7 @@ async function songInit() {
         <td>${s.SongID}</td>
         <td>${s.Title}</td>
         <td>${s.Duration}</td>
-        <td>${s.ReleaseDate}</td>
+        <td>${s.ReleaseDate || ''}</td>
         <td>${s.Genres}</td>
         <td>${s.Contributors}</td>
         <td>${s.CollaborationName || ''}</td>
@@ -101,7 +102,7 @@ async function songInit() {
       <p><strong>ID:</strong> ${s.SongID}</p>
       <p><strong>Title:</strong> ${s.Title}</p>
       <p><strong>Duration:</strong> ${s.Duration} sec</p>
-      <p><strong>Release Date:</strong> ${s.ReleaseDate}</p>
+      <p><strong>Release Date:</strong> ${s.ReleaseDate || '-'}</p>
       <p><strong>Genres:</strong> ${s.Genres || '-'}</p>
       <p><strong>Contributors:</strong> ${s.Contributors || '-'}</p>
       <p><strong>Collaboration:</strong> ${s.CollaborationName || '-'}</p>
@@ -109,7 +110,45 @@ async function songInit() {
 
     document.getElementById('edit-song-btn').onclick = () => openForm('Edit Song', s);
     document.getElementById('delete-song-btn').onclick = async () => {
-      if (!confirm(`Delete song "${s.Title}"?`)) return;
+      // 1) First, fetch dependency counts
+      let deps;
+      try {
+        deps = await getSongDependencies(s.SongID);
+      } catch (err) {
+        console.error('[API] getSongDependencies failed', err);
+        alert('Unable to verify dependent data; cannot delete at this time.');
+        return;
+      }
+
+      const { CollaborationCount, ContributorCount } = deps;
+
+      // 2) If no dependencies, delete immediately
+      if (CollaborationCount === 0 && ContributorCount === 0) {
+        try {
+          await deleteSong(s.SongID);
+          await fetchAndRender();
+          backToList();
+        } catch (err) {
+          console.error('[API] deleteSong failed', err);
+          alert('Failed to delete song.');
+        }
+        return;
+      }
+
+      // 3) Otherwise, build a user-friendly message and confirm
+      let msg =
+        `You are about to delete song “${s.Title}” (ID ${s.SongID}).\n\n` +
+        `This song is still used by:\n` +
+        `  • ${CollaborationCount} collaboration${CollaborationCount === 1 ? '' : 's'}\n` +
+        `  • ${ContributorCount} contributor-link${ContributorCount === 1 ? '' : 's'}\n\n` +
+        `Press OK to proceed (this will also remove those rows), or Cancel to abort.`;
+
+      if (!confirm(msg)) {
+        // User cancelled
+        return;
+      }
+
+      // 4) User confirmed → call DELETE
       try {
         await deleteSong(s.SongID);
         await fetchAndRender();
@@ -129,17 +168,17 @@ async function songInit() {
     renderTable(songs);
   }
 
-  // Open Add/Edit form
+  // Open Add/Edit form (no CollaborationName field here)
   function openForm(title, s = {}) {
     document.getElementById('song-modal-title').textContent = title;
     form.reset();
-    form.elements['SongID'].value              = s.SongID || '';
-    form.elements['Title'].value               = s.Title || '';
-    form.elements['Duration'].value            = s.Duration || '';
-    form.elements['ReleaseDate'].value         = s.ReleaseDate || '';
-    form.elements['Genres'].value              = s.Genres || '';
-    form.elements['Contributors'].value        = s.Contributors || '';
-    form.elements['CollaborationName'].value   = s.CollaborationName || '';
+    form.elements['SongID'].value       = s.SongID || '';
+    form.elements['Title'].value        = s.Title || '';
+    form.elements['Duration'].value     = s.Duration != null ? s.Duration : '';
+    form.elements['ReleaseDate'].value  = s.ReleaseDate || '';
+    form.elements['Genres'].value       = s.Genres || '';
+    form.elements['Contributors'].value = s.Contributors || '';
+    // We do NOT fill a CollaborationName input—it's removed from the form
     modal.classList.remove('hidden');
   }
 
@@ -151,11 +190,25 @@ async function songInit() {
   form.onsubmit = async e => {
     e.preventDefault();
     const data = Object.fromEntries(new FormData(form));
+
+    // Prepare payload (strip out any nonexistent fields)
+    const payload = {
+      Title:        data.Title,
+      Duration:     parseInt(data.Duration, 10),
+      ReleaseDate:  data.ReleaseDate || null,
+      Genres:       data.Genres || null,
+      Contributors: data.Contributors || null
+    };
+    // If editing, include SongID
+    if (data.SongID) {
+      payload.SongID = data.SongID;
+    }
+
     try {
-      if (data.SongID) {
-        await updateSong(data.SongID, data);
+      if (payload.SongID) {
+        await updateSong(payload.SongID, payload);
       } else {
-        await createSong(data);
+        await createSong(payload);
       }
       modal.classList.add('hidden');
       await fetchAndRender();
@@ -175,5 +228,4 @@ async function songInit() {
   console.log('[songInit] done');
 }
 
-// Expose for your main loader
 window.songInit = songInit;

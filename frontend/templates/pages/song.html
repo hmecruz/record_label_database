@@ -3,7 +3,7 @@
   <button id="add-song-btn" class="btn-primary">+ Add Song</button>
 </div>
 
-<!-- 3.1 Song List -->
+<!-- Song List -->
 <section id="song-list-section">
   <h3>All Songs</h3>
   <div class="filter-row">
@@ -30,14 +30,14 @@
   </table>
 </section>
 
-<!-- 3.3 Song Details/Edit/Delete -->
+<!-- Song Details / Edit / Delete -->
 <section id="song-details-section" class="hidden">
   <h3>Song Details</h3>
-  <div id="song-details"><!-- populated --></div>
+  <div id="song-details"><!-- populated by JS --></div>
   <div class="detail-actions">
-    <button id="edit-song-btn"       class="btn-secondary">Edit</button>
-    <button id="delete-song-btn"     class="btn-danger">Delete</button>
-    <button id="back-song-list-btn"  class="btn-light">Back to List</button>
+    <button id="edit-song-btn"      class="btn-secondary">Edit</button>
+    <button id="delete-song-btn"    class="btn-danger">Delete</button>
+    <button id="back-song-list-btn" class="btn-light">Back to List</button>
   </div>
 </section>
 
@@ -65,12 +65,8 @@
         <input type="text" name="Genres" />
       </label>
       <label>
-        Contributors (comma-separated):
+        Contributors (comma-separated Person_NIFs):
         <input type="text" name="Contributors" />
-      </label>
-      <label>
-        Collaboration:
-        <input type="text" name="CollaborationName" />
       </label>
 
       <div class="form-actions">

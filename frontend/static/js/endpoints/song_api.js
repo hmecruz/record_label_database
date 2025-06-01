@@ -1,3 +1,5 @@
+// File: frontend/static/js/endpoints/song_api.js
+
 const BASE = ''; // same-origin
 
 /**
@@ -8,12 +10,12 @@ const BASE = ''; // same-origin
  */
 export async function listSongs(filters = {}) {
   const params = new URLSearchParams();
-  if (filters.title)       params.set('title', filters.title);
-  if (filters.minDuration) params.set('minDuration', filters.minDuration);
-  if (filters.maxDuration) params.set('maxDuration', filters.maxDuration);
-  if (filters.releaseDate) params.set('releaseDate', filters.releaseDate);
-  if (filters.genre)       params.set('genre', filters.genre);
-  if (filters.contributor) params.set('contributor', filters.contributor);
+  if (filters.title)         params.set('title', filters.title);
+  if (filters.minDuration)   params.set('minDuration', filters.minDuration);
+  if (filters.maxDuration)   params.set('maxDuration', filters.maxDuration);
+  if (filters.releaseDate)   params.set('releaseDate', filters.releaseDate);
+  if (filters.genre)         params.set('genre', filters.genre);
+  if (filters.contributor)   params.set('contributor', filters.contributor);
   if (filters.collaboration) params.set('collaboration', filters.collaboration);
 
   const res = await fetch(`${BASE}/api/songs?${params.toString()}`);
@@ -31,7 +33,7 @@ export async function getSong(id) {
 /**
  * Create a new song.
  * Expects an object with keys:
- *   Title, Duration, ReleaseDate, Genres, Contributors, CollaborationName
+ *   Title, Duration, ReleaseDate, Genres, Contributors
  */
 export async function createSong(data) {
   const res = await fetch(`${BASE}/api/songs`, {
@@ -65,4 +67,11 @@ export async function deleteSong(id) {
   if (!res.ok) throw res;
   // 204 No Content
   return;
+}
+
+/** Get dependency counts for a given song ID */
+export async function getSongDependencies(id) {
+  const res = await fetch(`${BASE}/api/songs/${id}/dependencies`);
+  if (!res.ok) throw res;
+  return res.json();
 }

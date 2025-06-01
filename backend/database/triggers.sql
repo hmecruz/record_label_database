@@ -1,4 +1,8 @@
 -- Create triggers
+
+-- =============================================================================
+-- When a Contributor is deleted, also delete its linked Song if it has no contributors.
+-- =============================================================================
 CREATE TRIGGER trg_DeleteSongWithNoContributors
 ON Contributor_Song
 AFTER DELETE, INSERT
@@ -15,8 +19,10 @@ BEGIN
 END;
 GO
 
-   
-
+-- =============================================================================
+-- When a Collaboration_Contributor is deleted or inserted, delete the Collaboration
+-- if it has fewer than 2 contributors.
+-- =============================================================================
 CREATE TRIGGER trg_DeleteCollaborationWithFewContributors
 ON Collaboration_Contributor
 AFTER DELETE, INSERT

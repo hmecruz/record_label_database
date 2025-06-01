@@ -71,7 +71,6 @@ GO
 -- ================================================================
 -- Songs View
 -- ================================================================
-GO
 CREATE OR ALTER VIEW dbo.vw_Songs
 AS
 SELECT
@@ -79,27 +78,29 @@ SELECT
     s.Title,
     s.Duration,
     s.ReleaseDate,
-    -- aggregate genres as comma-separated
-    COALESCE(g.Genres, '')          AS Genres,
-    COALESCE(c.Contributors, '')    AS Contributors,
-    col.CollaborationName           AS CollaborationName
-FROM dbo.Song s
--- genres
+    COALESCE(g.Genres, '')       AS Genres,
+    COALESCE(c.Contributors, '') AS Contributors,
+    col.CollaborationName        AS CollaborationName
+FROM dbo.Song AS s
+
 OUTER APPLY (
-    SELECT STRING_AGG(Genre, ', ') 
-    FROM dbo.Song_Genre 
+    SELECT STRING_AGG(Genre, ', ')
+    FROM dbo.Song_Genre
     WHERE Song_SongID = s.SongID
 ) AS g(Genres)
--- contributors
+
 OUTER APPLY (
     SELECT STRING_AGG(p.Name, ', ')
-    FROM dbo.Contributor_Song cs
-    JOIN dbo.Person p ON cs.Contributor_ContributorID = (
-        SELECT ContributorID FROM dbo.Contributor WHERE Person_NIF = p.NIF
-    ) AND cs.Song_SongID = s.SongID
+    FROM dbo.Contributor_Song AS cs
+    JOIN dbo.Contributor AS c 
+      ON cs.Contributor_ContributorID = c.ContributorID
+    JOIN dbo.Person AS p 
+      ON c.Person_NIF = p.NIF
+    WHERE cs.Song_SongID = s.SongID
 ) AS c(Contributors)
--- collaboration (one-to-one)
-LEFT JOIN dbo.Collaboration col ON col.Song_SongID = s.SongID
+
+LEFT JOIN dbo.Collaboration AS col
+  ON col.Song_SongID = s.SongID;
 GO
 
 
