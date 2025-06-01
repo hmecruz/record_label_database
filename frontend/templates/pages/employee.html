@@ -1,106 +1,157 @@
-<div class="page-header">
-  <h2>Employees</h2>
-  <button id="add-emp-btn" class="btn-primary">+ Add Employee</button>
-</div>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Employees</title>
+  <link rel="stylesheet" href="/static/css/employee.css" />
+</head>
+<body>
 
-<section id="emp-list-section">
-  <h3>All Employees</h3>
-  <div class="filter-row">
-    <input type="text"  id="filter-name"       placeholder="Filter by Name…" />
-    <input type="text"  id="filter-label"      placeholder="Filter by Label…" />
-    <input type="text"  id="filter-jobtitle"   placeholder="Filter by Job Title…" />
-    <input type="text"  id="filter-department" placeholder="Filter by Department…" />  
-    <input type="number" id="filter-salary"    placeholder="Min Salary…" min="0" step="100"/>
-    <input type="text"  id="filter-email"      placeholder="Filter by Email…" />
-    <input type="text"  id="filter-phone"      placeholder="Filter by Phone…" />
-    <input type="text"  id="filter-nif"        placeholder="Filter by NIF…" />
+  <div class="page-header">
+    <h2>Employees</h2>
+    <button id="add-emp-btn" class="btn-primary">+ Add Employee</button>
   </div>
-  <table id="emp-list-table" class="data-table">
-    <thead>
-      <tr>
-        <th>ID </th>
-        <th>Name</th>
-        <th>Record Label</th>
-        <th>Job Title</th>
-        <th>Department</th>
-        <th>Salary</th>
-        <th>Hire Date</th>
-        <th>Email</th>
-        <th>Phone</th>
-        <th>Date of Birth</th>
-        <th>NIF</th>
-      </tr>
-    </thead>
-    <tbody><!-- populated by JS --></tbody>
-  </table>
-</section>
 
-<section id="emp-details-section" class="hidden">
-  <h3>Employee Details</h3>
-  <div id="emp-details">
-    <!-- populated by JS, now including label -->
+  <!-- List -->
+  <section id="emp-list-section">
+    <h3>All Employees</h3>
+    <div class="filter-row">
+      <input type="text"   id="filter-name"       placeholder="Filter by Name…" />
+      <input type="text"   id="filter-label"      placeholder="Filter by Record Label…" />
+      <input type="text"   id="filter-jobtitle"   placeholder="Filter by Job Title…" />
+      <input type="text"   id="filter-department" placeholder="Filter by Department…" />  
+      <input type="number" id="filter-salary"     placeholder="Min Salary…" min="0" step="100"/>
+      <input type="text"   id="filter-email"      placeholder="Filter by Email…" />
+      <input type="text"   id="filter-phone"      placeholder="Filter by Phone…" />
+      <input type="text"   id="filter-nif"        placeholder="Filter by NIF…" />
+    </div>
+    <table id="emp-list-table" class="data-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Name</th>
+          <th>Record Label</th>
+          <th>Job Title</th>
+          <th>Department</th>
+          <th>Salary</th>
+          <th>Hire Date</th>
+          <th>Email</th>
+          <th>Phone</th>
+          <th>Date of Birth</th>
+          <th>NIF</th>
+        </tr>
+      </thead>
+      <tbody><!-- populated by JS --></tbody>
+    </table>
+  </section>
+
+  <!-- Details / Edit / Delete -->
+  <section id="emp-details-section" class="hidden">
+    <h3>Employee Details</h3>
+    <div id="emp-details"><!-- Populated by JS --></div>
+    <div class="detail-actions">
+      <button id="edit-emp-btn"      class="btn-secondary">Edit</button>
+      <button id="delete-emp-btn"    class="btn-danger">Delete</button>
+      <button id="back-emp-list-btn" class="btn-light">Back to List</button>
+    </div>
+  </section>
+
+  <!-- Add/Edit Modal -->
+  <div id="emp-form-modal" class="modal hidden">
+    <div class="modal-content">
+      <h3 id="emp-modal-title">Add Employee</h3>
+      <form id="emp-form">
+        <input type="hidden" name="EmployeeID" />
+
+        <label>
+          NIF:
+          <input type="text" name="NIF" required />
+        </label>
+        <label>
+          Name:
+          <input type="text" name="Name" required />
+        </label>
+        <label>
+          Date of Birth:
+          <input type="date" name="DateOfBirth" />
+        </label>
+        <label>
+          Job Title:
+          <input type="text" name="JobTitle" required />
+        </label>
+        <label>
+          Department:
+          <input type="text" name="Department" />
+        </label>
+        <label>
+          Salary:
+          <input type="number" name="Salary" min="0" required />
+        </label>
+        <label>
+          Hire Date:
+          <input type="date" name="HireDate" required />
+        </label>
+        <label>
+          Email:
+          <input type="email" name="Email" />
+        </label>
+        <label>
+          Phone:
+          <input type="tel" name="PhoneNumber" />
+        </label>
+        <label>
+          Record Label:
+          <select name="RecordLabelID" required>
+            <option value="" disabled selected>Select a label</option>
+            <!-- Populated by JS via /api/record_labels -->
+          </select>
+        </label>
+
+        <div class="form-actions">
+          <button type="submit" class="btn-primary">Save</button>
+          <button type="button" id="emp-cancel-btn" class="btn-light">Cancel</button>
+        </div>
+      </form>
+    </div>
   </div>
-  <div class="detail-actions">
-    <button id="edit-emp-btn"      class="btn-secondary">Edit</button>
-    <button id="delete-emp-btn"    class="btn-danger">Delete</button>
-    <button id="back-emp-list-btn" class="btn-light">Back to List</button>
-  </div>
-</section>
 
-<div id="emp-form-modal" class="modal hidden">
-  <div class="modal-content">
-    <h3 id="emp-modal-title">Add Employee</h3>
-    <form id="emp-form">
-      <input type="hidden" name="EmployeeID" />
+  <!-- Conflict-Resolution Modal -->
+  <div id="conflict-modal" class="modal hidden">
+    <div class="modal-content conflict-content">
+      <h3>Conflict Detected</h3>
+      <p>A Person with NIF <span id="conflict-nif"></span> already exists.</p>
 
-      <label>
-        NIF:
-        <input type="text" name="NIF" required />
-      </label>
-      <label>
-        Name:
-        <input type="text" name="Name" required />
-      </label>
-      <label>
-        Date of Birth:
-        <input type="date" name="DateOfBirth" />
-      </label>
-      <label>
-        Job Title:
-        <input type="text" name="JobTitle" required />
-      </label>
-      <label>
-        Department:
-        <input type="text" name="Department" />
-      </label>
-      <label>
-        Salary:
-        <input type="number" name="Salary" min="0" required />
-      </label>
-      <label>
-        Hire Date:
-        <input type="date" name="HireDate" required />
-      </label>
-      <label>
-        Email:
-        <input type="email" name="Email" />
-      </label>
-      <label>
-        Phone:
-        <input type="tel" name="PhoneNumber" />
-      </label>
-      <label>
-        Record Label:
-        <select name="RecordLabelID" required>
-          <option value="" disabled selected>Select a label</option>
-          <!-- Populated by JS via /api/record_labels -->
-        </select>
-      </label>
+      <div class="conflict-sections">
+        <div class="conflict-block">
+          <h4>Existing Person’s Data:</h4>
+          <p><strong>Name:</strong> <span id="existing-name"></span></p>
+          <p><strong>Date of Birth:</strong> <span id="existing-dob"></span></p>
+          <p><strong>Email:</strong> <span id="existing-email"></span></p>
+          <p><strong>Phone:</strong> <span id="existing-phone"></span></p>
+        </div>
 
-      <div class="form-actions">
-        <button type="submit" class="btn-primary">Save</button>
-        <button type="button" id="emp-cancel-btn" class="btn-light">Cancel</button>
+        <div class="conflict-block">
+          <h4>Your Entered Data:</h4>
+          <p><strong>Name:</strong> <span id="incoming-name"></span></p>
+          <p><strong>Date of Birth:</strong> <span id="incoming-dob"></span></p>
+          <p><strong>Email:</strong> <span id="incoming-email"></span></p>
+          <p><strong>Phone:</strong> <span id="incoming-phone"></span></p>
+        </div>
       </div>
-    </form>
+
+      <p>How would you like to proceed?</p>
+      <div class="conflict-actions">
+        <button id="conflict-keep-btn" class="btn-secondary">
+          Keep Existing Person & Add Employee
+        </button>
+        <button id="conflict-overwrite-btn" class="btn-primary">
+          Overwrite Person Then Add Employee
+        </button>
+        <button id="conflict-cancel-btn" class="btn-light">Cancel</button>
+      </div>
+    </div>
   </div>
-</div>
+
+  <script src="/static/js/employee.js"></script>
+</body>
+</html>
