@@ -114,17 +114,56 @@ BEGIN
 END
 GO
 
--- DeleteEmployee: Deletes an employee by their ID.
+-- ================================================
+-- sp_DeleteEmployee: 
+--   Deletes an Employee by EmployeeID.
+--   If the associated Person (via Person_NIF) has no other 
+--   Employee or Contributor references after deletion, 
+--   that Person row is also removed.
+-- ================================================
 CREATE OR ALTER PROCEDURE dbo.sp_DeleteEmployee
     @ID INT
 AS
 BEGIN
     SET NOCOUNT ON;
+    BEGIN TRANSACTION;
+    BEGIN TRY
+        DECLARE @personNIF VARCHAR(20);
 
-    DELETE FROM dbo.Employee
-    WHERE EmployeeID = @ID;
+        -- 1) Find the Person_NIF for this Employee
+        SELECT 
+            @personNIF = e.Person_NIF
+        FROM dbo.Employee AS e
+        WHERE e.EmployeeID = @ID;
 
-    IF @@ROWCOUNT = 0
-        RAISERROR('Employee with ID %d not found', 16, 1, @ID);
+        IF @personNIF IS NULL
+        BEGIN
+            -- No such Employee found
+            THROW 50010, 'Employee not found', 1;
+        END
+
+        -- 2) Delete the Employee row
+        DELETE FROM dbo.Employee
+        WHERE EmployeeID = @ID;
+
+        -- 3) Check if that Person_NIF is still referenced by any Employee or Contributor
+        IF NOT EXISTS (
+            SELECT 1 FROM dbo.Employee    WHERE Person_NIF = @personNIF
+        )
+        AND NOT EXISTS (
+            SELECT 1 FROM dbo.Contributor WHERE Person_NIF = @personNIF
+        )
+        BEGIN
+            -- No remaining references: delete the Person
+            DELETE FROM dbo.Person
+            WHERE NIF = @personNIF;
+        END
+
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        ROLLBACK TRANSACTION;
+        THROW;  -- rethrow the original error (preserves message and number)
+    END CATCH
 END
 GO

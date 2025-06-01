@@ -20,12 +20,27 @@ async function contributorInit() {
   console.log('[contributorInit] start');
 
   // Sections & controls
-  const listSection    = document.getElementById('contrib-list-section');
-  const detailsSection = document.getElementById('contrib-details-section');
-  const modal          = document.getElementById('contrib-form-modal');
-  const form           = document.getElementById('contrib-form');
-  const addBtn         = document.getElementById('add-contrib-btn');
-  const cancelBtn      = document.getElementById('contrib-cancel-btn');
+  const listSection       = document.getElementById('contrib-list-section');
+  const detailsSection    = document.getElementById('contrib-details-section');
+  const modal             = document.getElementById('contrib-form-modal');
+  const form              = document.getElementById('contrib-form');
+  const addBtn            = document.getElementById('add-contrib-btn');
+  const cancelBtn         = document.getElementById('contrib-cancel-btn');
+
+  // Conflict‐resolution modal elements:
+  const conflictModal     = document.getElementById('conflict-modal');
+  const conflictNifSpan   = document.getElementById('conflict-nif');
+  const existingNameSpan  = document.getElementById('existing-name');
+  const existingDobSpan   = document.getElementById('existing-dob');
+  const existingEmailSpan = document.getElementById('existing-email');
+  const existingPhoneSpan = document.getElementById('existing-phone');
+  const incomingNameSpan  = document.getElementById('incoming-name');
+  const incomingDobSpan   = document.getElementById('incoming-dob');
+  const incomingEmailSpan = document.getElementById('incoming-email');
+  const incomingPhoneSpan = document.getElementById('incoming-phone');
+  const keepBtn           = document.getElementById('conflict-keep-btn');
+  const overwriteBtn      = document.getElementById('conflict-overwrite-btn');
+  const conflictCancelBtn = document.getElementById('conflict-cancel-btn');
 
   // Filter inputs
   const filters = {
@@ -39,8 +54,7 @@ async function contributorInit() {
 
   let contributors = [];
 
-  // Render table rows in the new order:
-  // ID | Name | Roles | Record Label | Email | Phone | Date of Birth | NIF
+  // (Re)render table
   function renderTable(data) {
     const tbody = document.querySelector('#contrib-list-table tbody');
     tbody.innerHTML = data.map(c => `
@@ -60,7 +74,7 @@ async function contributorInit() {
       .forEach(row => row.onclick = () => showDetails(+row.dataset.id));
   }
 
-  // Fetch from API, then apply client‐side Record Label + NIF filters
+  // Fetch from API, sort by ContributorID, then apply client‐side filters
   let fetchId = 0;
   async function fetchAndRender() {
     const myFetch = ++fetchId;
@@ -69,22 +83,22 @@ async function contributorInit() {
     if (filters.roles.value) params.role  = filters.roles.value;
     if (filters.email.value) params.email = filters.email.value;
     if (filters.phone.value) params.phone = filters.phone.value;
-    // (We do not send `filter.label` or `filter.nif` to the SP; those are applied below.)
 
     try {
       let data = await listContributors(params);
       if (myFetch !== fetchId) return; // stale
 
+      // Sort ascending by ContributorID so new ones appear at the bottom
       data.sort((a, b) => a.ContributorID - b.ContributorID);
 
-      // Client‐side filter by RecordLabelName
+      // Filter by Record Label (client‐side)
       const labelTerm = filters.label.value.trim().toLowerCase();
       if (labelTerm) {
         data = data.filter(c =>
           (c.RecordLabelName || '').toLowerCase().includes(labelTerm)
         );
       }
-      // Client‐side filter by NIF
+      // Filter by NIF (client‐side)
       const nifTerm = filters.nif.value.trim().toLowerCase();
       if (nifTerm) {
         data = data.filter(c =>
@@ -100,11 +114,12 @@ async function contributorInit() {
     }
   }
 
-  // Show details view (fetch fresh)
+  // Show details view for a contributor
   async function showDetails(id) {
     listSection.classList.add('hidden');
     detailsSection.classList.remove('hidden');
     modal.classList.add('hidden');
+    conflictModal.classList.add('hidden'); // ensure conflict modal is hidden
 
     let c;
     try {
@@ -145,15 +160,17 @@ async function contributorInit() {
     detailsSection.classList.add('hidden');
     listSection.classList.remove('hidden');
     modal.classList.add('hidden');
+    conflictModal.classList.add('hidden');
     renderTable(contributors);
   }
 
-  // Open Add/Edit modal. Required fields: NIF, Name, Roles
+  // Open “Add/Edit Contributor” modal
   function openForm(title, c = {}) {
     document.getElementById('contrib-modal-title').textContent = title;
     form.reset();
+    conflictModal.classList.add('hidden');
 
-    // If editing, pre‐fill the fields
+    // If editing, pre‐fill fields
     form.elements['ContributorID'].value = c.ContributorID || '';
     form.elements['NIF'].value           = c.NIF || '';
     form.elements['Name'].value          = c.Name || '';
@@ -161,15 +178,15 @@ async function contributorInit() {
     form.elements['Email'].value         = c.Email || '';
     form.elements['PhoneNumber'].value   = c.PhoneNumber || '';
     form.elements['Roles'].value         = c.Roles || '';
-    // There is NO RecordLabel field here—it's determined automatically if Person is also an Employee
 
     modal.classList.remove('hidden');
   }
 
-  // Handlers
+  // Handlers for open/cancel Add/Edit
   addBtn.onclick = e => { e.preventDefault(); openForm('Add Contributor'); };
   cancelBtn.onclick = e => { e.preventDefault(); modal.classList.add('hidden'); };
 
+  // Form submission logic
   form.onsubmit = async e => {
     e.preventDefault();
     const data = Object.fromEntries(new FormData(form));
@@ -189,7 +206,7 @@ async function contributorInit() {
     }
 
     try {
-      // If editing an existing Contributor:
+      // 1) If editing, just call updateContributor
       if (data.ContributorID) {
         await updateContributor(data.ContributorID, data);
         modal.classList.add('hidden');
@@ -198,14 +215,14 @@ async function contributorInit() {
         return;
       }
 
-      // Otherwise, attempt to create a new Contributor:
+      // 2) Otherwise, attempt to create a new Contributor
       try {
         await createContributor(data);
         modal.classList.add('hidden');
         await fetchAndRender();
         backToList();
       } catch (res) {
-        // If the server returned HTTP 409 Conflict, handle the “existing Person with same NIF but different fields” logic
+        // If the server returned HTTP 409 Conflict, pop up our “Conflict” modal
         if (res instanceof Response && res.status === 409) {
           let payload;
           try {
@@ -218,52 +235,41 @@ async function contributorInit() {
           const existingPerson = payload.existingPerson;
           const incomingData   = payload.incomingData;
 
-          // Build the prompt:
-          let msg =
-            `A Person already exists in our database with NIF ${existingPerson.NIF}.\n` +
-            `Their current fields are:\n` +
-            `  Name: ${existingPerson.Name}\n` +
-            `  DateOfBirth: ${existingPerson.DateOfBirth || '(none)'}\n` +
-            `  Email: ${existingPerson.Email || '(none)'}\n` +
-            `  Phone: ${existingPerson.PhoneNumber || '(none)'}\n\n` +
-            `You are trying to register a Contributor with:\n` +
-            `  Name: ${incomingData.Name}\n` +
-            `  DateOfBirth: ${incomingData.DateOfBirth || '(none)'}\n` +
-            `  Email: ${incomingData.Email || '(none)'}\n` +
-            `  Phone: ${incomingData.PhoneNumber || '(none)'}\n\n` +
-            `Would you like to:\n` +
-            `  (A) Keep the existing Person fields and simply add the Contributor entry under NIF ${existingPerson.NIF},\n` +
-            `  (B) Overwrite the Person’s fields with these new values, or\n` +
-            `  (C) Cancel?`;
+          // Populate the conflict modal fields
+          conflictNifSpan.textContent   = existingPerson.NIF;
+          existingNameSpan.textContent  = existingPerson.Name;
+          existingDobSpan.textContent   = existingPerson.DateOfBirth || '(none)';
+          existingEmailSpan.textContent = existingPerson.Email || '(none)';
+          existingPhoneSpan.textContent = existingPerson.PhoneNumber || '(none)';
 
-          // Prompt the user for A/B/C:
-          const choice = prompt(
-            msg +
-            "\n\nType A for “keep old”, B for “overwrite”, or C to cancel."
-          );
-          if (!choice) {
-            // User pressed Cancel in the prompt
-            return;
-          }
+          incomingNameSpan.textContent  = incomingData.Name;
+          incomingDobSpan.textContent   = incomingData.DateOfBirth || '(none)';
+          incomingEmailSpan.textContent = incomingData.Email || '(none)';
+          incomingPhoneSpan.textContent = incomingData.PhoneNumber || '(none)';
 
-          const cUpper = choice.trim().toUpperCase();
-          if (cUpper === 'A') {
-            // Choice A: Keep the existing Person data, just add Contributor under that NIF
+          // Show the modal
+          conflictModal.classList.remove('hidden');
+          modal.classList.add('hidden');
+
+          // ---- Button handlers inside the conflict modal ----
+
+          // Choice A: Keep existing Person, just add Contributor under that NIF
+          keepBtn.onclick = async () => {
+            conflictModal.classList.add('hidden');
             try {
               await createContributor(incomingData, '?useOldPerson=true');
-              modal.classList.add('hidden');
               await fetchAndRender();
               backToList();
             } catch (err2) {
-              console.error('[API] keep‐old‐person failed', err2);
+              console.error('[API] keep-old-person failed', err2);
               alert("Failed to add Contributor under existing Person.");
             }
-          }
-          else if (cUpper === 'B') {
-            // Choice B: Overwrite Person’s data, then add Contributor under that same NIF
+          };
+
+          // Choice B: Overwrite Person fields, then add Contributor under that NIF
+          overwriteBtn.onclick = async () => {
             try {
-              // 1) Overwrite Person via a PUT to /api/persons/:nif
-              //    (Assumes you have a /api/persons/<nif> endpoint that updates p.Name, p.DateOfBirth, etc.)
+              // 1) Update Person via PUT /api/persons/:nif
               const updatePersonRes = await fetch(
                 `/api/persons/${existingPerson.NIF}`,
                 {
@@ -283,21 +289,22 @@ async function contributorInit() {
 
               // 2) Now add Contributor under that same NIF
               await createContributor(incomingData, '?useOldPerson=true');
-              modal.classList.add('hidden');
+              conflictModal.classList.add('hidden');
               await fetchAndRender();
               backToList();
             } catch (err3) {
               console.error('[API] overwrite failed', err3);
               alert("Failed to overwrite Person or add Contributor.");
             }
-          }
-          else {
-            // Choice C: Cancel → do nothing
-            return;
-          }
+          };
+
+          // Choice C: Cancel
+          conflictCancelBtn.onclick = () => {
+            conflictModal.classList.add('hidden');
+          };
         }
         else {
-          // Some other HTTP error (400, 500, etc.)
+          // Some other HTTP error
           console.error('[API] createContributor failed', res);
           alert('Failed to save contributor.');
         }

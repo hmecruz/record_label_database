@@ -298,16 +298,57 @@ BEGIN
 END
 GO
 
+
 -- ================================================
--- sp_DeleteContributor: Delete a contributor by ContributorID
+-- sp_DeleteContributor: 
+--   Deletes a Contributor by ContributorID.
+--   If the associated Person (via Person_NIF) has no other 
+--   Contributor or Employee references after deletion, 
+--   that Person row is also removed.
 -- ================================================
 CREATE OR ALTER PROCEDURE dbo.sp_DeleteContributor
     @ID INT
 AS
 BEGIN
     SET NOCOUNT ON;
-    DELETE FROM dbo.Contributor WHERE ContributorID = @ID;
-    IF @@ROWCOUNT = 0
-        THROW 50021, 'Contributor not found', 1;
+    BEGIN TRANSACTION;
+    BEGIN TRY
+        DECLARE @personNIF VARCHAR(20);
+
+        -- 1) Find the Person_NIF for this Contributor
+        SELECT 
+            @personNIF = c.Person_NIF
+        FROM dbo.Contributor AS c
+        WHERE c.ContributorID = @ID;
+
+        IF @personNIF IS NULL
+        BEGIN
+            -- No such Contributor found
+            THROW 50020, 'Contributor not found', 1;
+        END
+
+        -- 2) Delete the Contributor row
+        DELETE FROM dbo.Contributor
+        WHERE ContributorID = @ID;
+
+        -- 3) Check if that Person_NIF is still referenced by any Contributor or Employee
+        IF NOT EXISTS (
+            SELECT 1 FROM dbo.Contributor WHERE Person_NIF = @personNIF
+        )
+        AND NOT EXISTS (
+            SELECT 1 FROM dbo.Employee    WHERE Person_NIF = @personNIF
+        )
+        BEGIN
+            -- No remaining references: delete the Person
+            DELETE FROM dbo.Person
+            WHERE NIF = @personNIF;
+        END
+
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        ROLLBACK TRANSACTION;
+        THROW;  -- rethrow the original error
+    END CATCH
 END
 GO

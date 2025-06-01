@@ -1,0 +1,227 @@
+/* contributor.css */
+
+/* ------------------------------------------------------
+   General Page and Table Styles
+------------------------------------------------------ */
+body {
+  font-family: Arial, sans-serif;
+  margin: 24px;
+  background-color: #f5f5f5;
+  color: #333;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.page-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.filter-row input {
+  padding: 6px 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  width: 150px;
+  background-color: #fff;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: #fff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.data-table th,
+.data-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid #e0e0e0;
+  text-align: left;
+}
+
+.data-table th {
+  background-color: #fafafa;
+  font-weight: 600;
+}
+
+.data-table tbody tr:hover {
+  background-color: #f0f0f0;
+  cursor: pointer;
+}
+
+/* Detail Section */
+#contrib-details-section {
+  background-color: #fff;
+  padding: 16px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.detail-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+/* Hidden utility class */
+.hidden {
+  display: none !important;
+}
+
+/* ------------------------------------------------------
+   Button Styles
+------------------------------------------------------ */
+button {
+  font-size: 0.9rem;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.btn-primary {
+  background-color: #007bff;
+  color: #fff;
+}
+
+.btn-secondary {
+  background-color: #6c757d;
+  color: #fff;
+}
+
+.btn-danger {
+  background-color: #dc3545;
+  color: #fff;
+}
+
+.btn-light {
+  background-color: #f8f9fa;
+  color: #333;
+}
+
+button:hover {
+  opacity: 0.90;
+}
+
+/* ------------------------------------------------------
+   Modal Base Styles
+------------------------------------------------------ */
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 2000;
+}
+
+.modal.hidden {
+  display: none;
+}
+
+.modal-content {
+  background: #fff;
+  border-radius: 4px;
+  padding: 16px;
+  width: 90%;
+  max-width: 480px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  max-height: calc(100vh - 64px);
+  overflow-y: auto;
+}
+
+/* Form labels and inputs */
+#contrib-form label {
+  display: block;
+  margin-bottom: 12px;
+}
+
+#contrib-form input[type="text"],
+#contrib-form input[type="email"],
+#contrib-form input[type="tel"],
+#contrib-form input[type="date"] {
+  width: calc(100% - 12px);
+  padding: 6px;
+  margin-top: 4px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+/* Actions inside Add/Edit modal */
+.form-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+/* ------------------------------------------------------
+   Conflict-Resolution Modal Styles
+------------------------------------------------------ */
+.conflict-content h3 {
+  margin-top: 0;
+  color: #c00;
+}
+
+.conflict-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 16px 0;
+}
+
+/* On wider screens, place existing vs incoming side by side */
+@media (min-width: 600px) {
+  .conflict-sections {
+    flex-direction: row;
+  }
+}
+
+.conflict-block {
+  flex: 1;
+  border: 1px solid #ddd;
+  padding: 12px;
+  border-radius: 4px;
+  background: #fafafa;
+}
+
+.conflict-block h4 {
+  margin-top: 0;
+  font-size: 1rem;
+  color: #333;
+}
+
+/* Actions row for conflict modal */
+.conflict-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+.conflict-actions button {
+  min-width: 140px;
+}
+
+/* ------------------------------------------------------
+   Minor Utility Classes
+------------------------------------------------------ */
+p, li {
+  line-height: 1.4;
+  margin-bottom: 8px;
+}

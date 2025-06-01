@@ -1,5 +1,5 @@
 -- ================================================================
--- vw_RecordLabels: view to list all record labels with their details
+-- Record Labels View
 -- ================================================================
 CREATE OR ALTER VIEW dbo.vw_RecordLabels
 AS
@@ -45,7 +45,9 @@ LEFT JOIN (
 GO
 
 
+-- ================================================================
 -- Employees View
+-- ================================================================
 CREATE OR ALTER VIEW dbo.vw_Employees
 AS
 SELECT
@@ -66,7 +68,9 @@ JOIN dbo.Person    p  ON p.NIF = e.Person_NIF
 JOIN dbo.RecordLabel rl ON rl.RecordLabelID = e.RecordLabel_RecordLabelID;
 GO
 
+-- ================================================================
 -- Songs View
+-- ================================================================
 GO
 CREATE OR ALTER VIEW dbo.vw_Songs
 AS
@@ -150,7 +154,9 @@ OUTER APPLY (
 ) AS sw(Roles);
 GO
 
+-- ================================================================
 -- Collaborations View
+-- ================================================================
 GO
 CREATE OR ALTER VIEW dbo.vw_Collaborations
 AS
@@ -187,7 +193,9 @@ LEFT JOIN dbo.Song s
   ON s.SongID = c.Song_SongID;
 GO
 
+-- ================================================================
 -- Dashboard View
+-- ================================================================
 CREATE OR ALTER VIEW dbo.vw_DashboardCounts
 AS
 SELECT
