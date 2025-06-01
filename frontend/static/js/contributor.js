@@ -153,13 +153,27 @@ async function contributorInit() {
         return;
       }
 
-      // 2) Build a user‐friendly message
       const { CollaborationCount, SongCount } = deps;
+      
+      // 2) If there are no dependencies, delete immediately
+      if (CollaborationCount === 0 && SongCount === 0) {
+        try {
+          await deleteContributor(c.ContributorID);
+          await fetchAndRender();
+          backToList();
+        } catch (err) {
+          console.error('[API] deleteContributor failed', err);
+          alert('Failed to delete contributor.');
+        }
+        return;
+      }
+
+      // 3) Otherwise, build a user‐friendly message and confirm
       let msg =
         `You are about to delete contributor “${c.Name}” (ID ${c.ContributorID}).\n\n` +
         `This will also remove:\n` +
         `  • ${CollaborationCount} collaboration link${CollaborationCount === 1 ? '' : 's'}\n` +
-        `  • ${SongCount} song‐association${SongCount === 1 ? '' : 's'}\n\n` +
+        `  • ${SongCount} song-association${SongCount === 1 ? '' : 's'}\n\n` +
         `Press OK to proceed or Cancel to abort.`;
 
       if (!confirm(msg)) {
@@ -167,7 +181,7 @@ async function contributorInit() {
         return;
       }
 
-      // 3) User confirmed → call DELETE
+      // 4) User confirmed → call DELETE
       try {
         await deleteContributor(c.ContributorID);
         await fetchAndRender();
