@@ -410,6 +410,8 @@ GO
 -- sp_DeleteContributor: 
 --   Deletes a Contributor by ContributorID.
 --   Also removes any Collaboration_Contributor and Contributor_Song links first.
+--   Automatically deletes Collaborations with ≤1 contributors after deletion.
+--   Automatically deletes Songs with 0 contributors after deletion.
 --   If the associated Person (via Person_NIF) has no other 
 --   Contributor or Employee references after deletion, 
 --   that Person row is also removed.
@@ -435,24 +437,62 @@ BEGIN
             THROW 50020, 'Contributor not found', 1;
         END
 
-        -- 2) Delete any Collaboration_Contributor rows for this Contributor
+        -- 2) Handle Collaboration_Contributor cleanup
+        -- Get affected CollaborationIDs before deletion
+        DECLARE @CollabIDs TABLE (CollaborationID INT);
+        INSERT INTO @CollabIDs (CollaborationID)
+        SELECT DISTINCT Collaboration_CollaborationID
+        FROM dbo.Collaboration_Contributor
+        WHERE Contributor_ContributorID = @ID;
+
+        -- Delete links
         DELETE FROM dbo.Collaboration_Contributor
         WHERE Contributor_ContributorID = @ID;
 
-        -- 3) Delete any Contributor_Song rows for this Contributor
+        -- Delete Collaborations that now have ≤1 contributor
+        DELETE FROM dbo.Collaboration
+        WHERE CollaborationID IN (
+            SELECT cc.CollaborationID
+            FROM @CollabIDs AS cc
+            LEFT JOIN dbo.Collaboration_Contributor AS ccc
+                ON cc.CollaborationID = ccc.Collaboration_CollaborationID
+            GROUP BY cc.CollaborationID
+            HAVING COUNT(ccc.Contributor_ContributorID) <= 1
+        );
+
+        -- 3) Handle Contributor_Song cleanup
+        -- Get affected SongIDs before deletion
+        DECLARE @SongIDs TABLE (SongID INT);
+        INSERT INTO @SongIDs (SongID)
+        SELECT DISTINCT Song_SongID
+        FROM dbo.Contributor_Song
+        WHERE Contributor_ContributorID = @ID;
+
+        -- Delete links
         DELETE FROM dbo.Contributor_Song
         WHERE Contributor_ContributorID = @ID;
+
+        -- Delete Songs that now have 0 contributors
+        DELETE FROM dbo.Song
+        WHERE SongID IN (
+            SELECT s.SongID
+            FROM @SongIDs AS s
+            LEFT JOIN dbo.Contributor_Song AS cs
+                ON s.SongID = cs.Song_SongID
+            GROUP BY s.SongID
+            HAVING COUNT(cs.Contributor_ContributorID) = 0
+        );
 
         -- 4) Delete the Contributor row itself
         DELETE FROM dbo.Contributor
         WHERE ContributorID = @ID;
 
-        -- 5) Check if that Person_NIF is still referenced by any Contributor or Employee
+        -- 5) Check if that Person_NIF is still referenced
         IF NOT EXISTS (
             SELECT 1 FROM dbo.Contributor WHERE Person_NIF = @personNIF
         )
         AND NOT EXISTS (
-            SELECT 1 FROM dbo.Employee    WHERE Person_NIF = @personNIF
+            SELECT 1 FROM dbo.Employee WHERE Person_NIF = @personNIF
         )
         BEGIN
             -- No remaining references: delete the Person
@@ -464,7 +504,7 @@ BEGIN
     END TRY
     BEGIN CATCH
         ROLLBACK TRANSACTION;
-        THROW;  -- rethrow the original error
+        THROW;
     END CATCH
 END
 GO

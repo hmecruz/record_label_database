@@ -1,3 +1,4 @@
+# backend/endpoints/db_admin_routes.py
 import os
 from flask import Blueprint, jsonify, abort
 from config.database_config import DatabaseConfig
@@ -32,12 +33,9 @@ def _exec_sql_file(cursor, path):
         if batch.strip():
             cursor.execute(batch)
 
+
 @db_admin_api.route('/drop_tables', methods=['POST'])
 def drop_all_tables():
-    """
-    POST /api/db/drop_tables
-    Executes drop_all_tables.sql to drop every table (in the correct order).
-    """
     base = os.path.dirname(os.path.dirname(__file__))  # backend/
     sql_path = os.path.join(base, 'database', 'drop_all_tables.sql')
 
@@ -53,18 +51,14 @@ def drop_all_tables():
     finally:
         conn.close()
 
+
 @db_admin_api.route('/init', methods=['POST'])
 def init_schema():
-    """
-    POST /api/db/init
-    1) Executes ddl.sql to (re)create all tables and constraints.
-    2) Executes views.sql to create views.
-    3) Executes all .sql files in stored_procedures/ to create stored procedures.
-    """
-    base        = os.path.dirname(os.path.dirname(__file__))  # backend/
-    ddl_path    = os.path.join(base, 'database', 'ddl.sql')
-    views_path  = os.path.join(base, 'database', 'views.sql')
-    sp_folder   = os.path.join(base, 'database', 'stored_procedures')  
+    base         = os.path.dirname(os.path.dirname(__file__))  # backend/
+    ddl_path     = os.path.join(base, 'database', 'ddl.sql')
+    views_path   = os.path.join(base, 'database', 'views.sql')
+    sp_folder    = os.path.join(base, 'database', 'stored_procedures')
+    triggers_path = os.path.join(base, 'database', 'triggers.sql')
 
     conn = DatabaseConfig.get_connection()
     try:
@@ -76,15 +70,19 @@ def init_schema():
         # 2) Create views
         _exec_sql_file(cursor, views_path)
 
-        # 3) Create stored procedures
+        # 3) Create all stored procedures
         for filename in sorted(os.listdir(sp_folder)):
             if filename.lower().endswith('.sql'):
                 sp_path = os.path.join(sp_folder, filename)
                 _exec_sql_file(cursor, sp_path)
 
+        # 4) Create triggers (if triggers.sql exists)
+        if os.path.exists(triggers_path):
+            _exec_sql_file(cursor, triggers_path)
+
         conn.commit()
         return jsonify({
-            "message": "Schema, views, and stored procedures initialized successfully."
+            "message": "Schema, views, stored procedures, and triggers initialized successfully."
         }), 200
 
     except pyodbc.Error as e:
@@ -93,12 +91,9 @@ def init_schema():
     finally:
         conn.close()
 
+
 @db_admin_api.route('/populate', methods=['POST'])
 def populate_data():
-    """
-    POST /api/db/populate
-    Executes insert_data.sql to seed the database with initial data.
-    """
     base     = os.path.dirname(os.path.dirname(__file__))  # backend/
     sql_path = os.path.join(base, 'database', 'insert_data.sql')
 
