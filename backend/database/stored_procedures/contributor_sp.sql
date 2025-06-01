@@ -273,28 +273,135 @@ END
 GO
 
 -- ================================================
--- sp_UpdatePerson: Update a Person’s basic fields by NIF
+-- sp_UpdateContributor: 
+--   Updates a Contributor’s Person (possibly changing NIF),
+--   then updates Roles.  If @NewNIF differs from the old one,
+--   it updates Person.NIF and fixes the Contributor.Person_NIF
+--   (and any Employee.Person_NIF) to point to the new NIF.
 -- ================================================
-CREATE OR ALTER PROCEDURE dbo.sp_UpdatePerson
-    @NIF         VARCHAR(20),
-    @Name        VARCHAR(255),
-    @DateOfBirth DATE           = NULL,
-    @Email       VARCHAR(255)   = NULL,
-    @PhoneNumber VARCHAR(50)    = NULL
+CREATE OR ALTER PROCEDURE dbo.sp_UpdateContributor
+(
+    @ID            INT,            -- ContributorID to update
+    @NewNIF        VARCHAR(20),    -- New NIF (may differ from old)
+    @Name          VARCHAR(255),   -- New Name
+    @DateOfBirth   DATE            = NULL,
+    @Email         VARCHAR(255)    = NULL,
+    @PhoneNumber   VARCHAR(50)     = NULL,
+    @Roles         VARCHAR(MAX)    = NULL    -- comma-separated
+)
 AS
 BEGIN
     SET NOCOUNT ON;
+    BEGIN TRANSACTION;
+    BEGIN TRY
+        DECLARE @oldNIF VARCHAR(20);
 
-    UPDATE dbo.Person
-    SET
-      Name        = @Name,
-      DateOfBirth = @DateOfBirth,
-      Email       = @Email,
-      PhoneNumber = @PhoneNumber
-    WHERE NIF = @NIF;
+        -- 1) Find the old Person_NIF for this Contributor
+        SELECT 
+            @oldNIF = c.Person_NIF
+        FROM dbo.Contributor AS c
+        WHERE c.ContributorID = @ID;
 
-    IF @@ROWCOUNT = 0
-        THROW 51010, 'Person not found', 1;
+        IF @oldNIF IS NULL
+        BEGIN
+            -- ContributorID not found
+            THROW 50020, 'Contributor not found', 1;
+        END
+
+        -- 2) If the NIF changed, update Person.NIF and also any referring FKs
+        IF @NewNIF IS NOT NULL AND @NewNIF <> @oldNIF
+        BEGIN
+            -- First, ensure the new NIF is not already in use by some other Person
+            IF EXISTS (SELECT 1 FROM dbo.Person WHERE NIF = @NewNIF)
+            BEGIN
+                -- Trying to change to an existing NIF → unique‐key violation
+                THROW 51011, 'NIF already exists', 1;
+            END
+
+            -- Update the PK in Person
+            UPDATE dbo.Person
+            SET 
+                NIF         = @NewNIF,
+                Name        = @Name,
+                DateOfBirth = @DateOfBirth,
+                Email       = @Email,
+                PhoneNumber = @PhoneNumber
+            WHERE NIF = @oldNIF;
+
+            IF @@ROWCOUNT = 0
+                THROW 51010, 'Person not found', 1;
+
+            -- Update the Contributor row to point to the new NIF
+            UPDATE dbo.Contributor
+            SET Person_NIF = @NewNIF
+            WHERE ContributorID = @ID;
+
+            -- Also update any Employee that pointed to the oldNIF
+            UPDATE dbo.Employee
+            SET Person_NIF = @NewNIF
+            WHERE Person_NIF = @oldNIF;
+        END
+        ELSE
+        BEGIN
+            -- 3) NIF did not change (or @NewNIF is blank), just update the other Person fields
+            UPDATE dbo.Person
+            SET
+                Name        = @Name,
+                DateOfBirth = @DateOfBirth,
+                Email       = @Email,
+                PhoneNumber = @PhoneNumber
+            WHERE NIF = @oldNIF;
+
+            IF @@ROWCOUNT = 0
+                THROW 51010, 'Person not found', 1;
+        END
+
+        -- 4) Delete existing roles for this Contributor
+        DELETE FROM dbo.Artist     WHERE Contributor_ContributorID = @ID;
+        DELETE FROM dbo.Producer   WHERE Contributor_ContributorID = @ID;
+        DELETE FROM dbo.Songwriter WHERE Contributor_ContributorID = @ID;
+
+        -- 5) Re‐insert roles (if any)
+        IF @Roles IS NOT NULL
+        BEGIN
+            DECLARE @r VARCHAR(50);
+            DECLARE cur CURSOR FOR
+              SELECT LTRIM(RTRIM(value)) 
+              FROM STRING_SPLIT(@Roles, ',');
+            OPEN cur;
+            FETCH NEXT FROM cur INTO @r;
+            WHILE @@FETCH_STATUS = 0
+            BEGIN
+                IF @r = 'Artist'
+                BEGIN
+                    -- If you're using the Artist table, and you need a StageName,
+                    -- you can supply a default or require it in the JSON. For now:
+                    INSERT dbo.Artist 
+                      (Contributor_ContributorID, StageName)
+                    VALUES 
+                      (@ID, CONCAT('Artist_', CAST(@ID AS VARCHAR(20))));
+                END
+                ELSE IF @r = 'Producer'
+                BEGIN
+                    INSERT dbo.Producer (Contributor_ContributorID) VALUES (@ID);
+                END
+                ELSE IF @r = 'Songwriter'
+                BEGIN
+                    INSERT dbo.Songwriter (Contributor_ContributorID) VALUES (@ID);
+                END
+
+                FETCH NEXT FROM cur INTO @r;
+            END
+            CLOSE cur; 
+            DEALLOCATE cur;
+        END
+
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        ROLLBACK TRANSACTION;
+        THROW;  -- rethrow the original error
+    END CATCH
 END
 GO
 
@@ -302,6 +409,7 @@ GO
 -- ================================================
 -- sp_DeleteContributor: 
 --   Deletes a Contributor by ContributorID.
+--   Also removes any Collaboration_Contributor and Contributor_Song links first.
 --   If the associated Person (via Person_NIF) has no other 
 --   Contributor or Employee references after deletion, 
 --   that Person row is also removed.
@@ -327,11 +435,19 @@ BEGIN
             THROW 50020, 'Contributor not found', 1;
         END
 
-        -- 2) Delete the Contributor row
+        -- 2) Delete any Collaboration_Contributor rows for this Contributor
+        DELETE FROM dbo.Collaboration_Contributor
+        WHERE Contributor_ContributorID = @ID;
+
+        -- 3) Delete any Contributor_Song rows for this Contributor
+        DELETE FROM dbo.Contributor_Song
+        WHERE Contributor_ContributorID = @ID;
+
+        -- 4) Delete the Contributor row itself
         DELETE FROM dbo.Contributor
         WHERE ContributorID = @ID;
 
-        -- 3) Check if that Person_NIF is still referenced by any Contributor or Employee
+        -- 5) Check if that Person_NIF is still referenced by any Contributor or Employee
         IF NOT EXISTS (
             SELECT 1 FROM dbo.Contributor WHERE Person_NIF = @personNIF
         )
@@ -350,5 +466,37 @@ BEGIN
         ROLLBACK TRANSACTION;
         THROW;  -- rethrow the original error
     END CATCH
+END
+GO
+
+
+-- ================================================
+-- sp_GetContributorDependencies:
+--   Returns counts of “child” rows that reference this contributor:
+--     • Collaboration_Contributor rows
+--     • Contributor_Song rows
+-- ================================================
+CREATE OR ALTER PROCEDURE dbo.sp_GetContributorDependencies
+    @ContributorID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @collabCount INT = 0;
+    DECLARE @songCount  INT = 0;
+
+    SELECT 
+        @collabCount = COUNT(*) 
+    FROM dbo.Collaboration_Contributor
+    WHERE Contributor_ContributorID = @ContributorID;
+
+    SELECT 
+        @songCount = COUNT(*) 
+    FROM dbo.Contributor_Song
+    WHERE Contributor_ContributorID = @ContributorID;
+
+    SELECT
+        @collabCount AS CollaborationCount,
+        @songCount  AS SongCount;
 END
 GO

@@ -29,6 +29,16 @@ export async function getContributor(id) {
 }
 
 /**
+ * Get counts of collaborations & songs for a given contributor.
+ * Returns { CollaborationCount, SongCount }.
+ */
+export async function getContributorDependencies(id) {
+  const res = await fetch(`${BASE}/api/contributors/${id}/dependencies`);
+  if (!res.ok) throw res;
+  return res.json();
+}
+
+/**
  * Create a new contributor.
  * Expects an object with keys:
  *   NIF, Name, DateOfBirth, Email, PhoneNumber, Roles

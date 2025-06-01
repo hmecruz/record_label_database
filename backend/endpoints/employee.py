@@ -1,6 +1,9 @@
 from flask import Blueprint, request, jsonify, abort
 from config.database_config import DatabaseConfig
 import pyodbc
+from config.logger import get_logger
+
+logger = get_logger(__name__)
 
 employee_api = Blueprint(
     'employee_api',
@@ -116,11 +119,24 @@ def create_employee():
 @employee_api.route('/<int:emp_id>', methods=['PUT'])
 def update_employee(emp_id):
     data = request.get_json() or {}
+    logger.debug(f"update_employee called for ID={emp_id} with data={data}")
+
     # Validate required fields
     required = ['Name', 'JobTitle', 'Salary', 'HireDate', 'RecordLabelID']
     missing = [f for f in required if not data.get(f)]
     if missing:
+        logger.warning(f"update_employee missing required fields: {missing}")
         abort(400, description=f"Missing required fields: {', '.join(missing)}")
+
+    name          = data.get('Name').strip()
+    dob           = data.get('DateOfBirth')
+    email         = data.get('Email')
+    phone         = data.get('PhoneNumber')
+    job_title     = data.get('JobTitle').strip()
+    department    = data.get('Department')
+    salary        = data.get('Salary')
+    hire_date     = data.get('HireDate')
+    record_label  = data.get('RecordLabelID')
 
     conn = DatabaseConfig.get_connection()
     try:
@@ -128,27 +144,34 @@ def update_employee(emp_id):
         try:
             cursor.execute(
                 "EXEC dbo.sp_UpdateEmployee "
-                "@ID=?,@Name=?,@DateOfBirth=?,@Email=?,@PhoneNumber=?,"
-                "@JobTitle=?,@Department=?,@Salary=?,@HireDate=?,@RecordLabelID=?",
+                "@ID=?, @Name=?, @DateOfBirth=?, @Email=?, @PhoneNumber=?, "
+                "@JobTitle=?, @Department=?, @Salary=?, @HireDate=?, @RecordLabelID=?",
                 emp_id,
-                data.get('Name'),
-                data.get('DateOfBirth'),
-                data.get('Email'),
-                data.get('PhoneNumber'),
-                data.get('JobTitle'),
-                data.get('Department'),
-                data.get('Salary'),
-                data.get('HireDate'),
-                data.get('RecordLabelID')
+                name,
+                dob,
+                email,
+                phone,
+                job_title,
+                department,
+                salary,
+                hire_date,
+                record_label
             )
             conn.commit()
         except pyodbc.ProgrammingError as pe:
+            # SP might throw error 50011 if Employee not found
             if '50011' in str(pe):
+                logger.info(f"update_employee: Employee ID={emp_id} not found")
                 abort(404, description=f"Employee with ID {emp_id} not found")
+            logger.exception(f"ProgrammingError in sp_UpdateEmployee ID={emp_id}")
             raise
+    except pyodbc.Error as e:
+        logger.exception(f"Database error updating Employee ID={emp_id}")
+        abort(500, description="Internal error while updating employee.")
     finally:
         conn.close()
 
+    # Re‐fetch and return the updated employee
     return get_employee(emp_id)
 
 @employee_api.route('/<int:emp_id>', methods=['DELETE'])

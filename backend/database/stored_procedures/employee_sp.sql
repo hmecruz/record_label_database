@@ -70,10 +70,19 @@ END
 GO
 
 
--- UpdateEmployee: Updates an existing employee by their ID.
+-- ================================================
+-- sp_UpdateEmployee: 
+--   Updates an Employee’s Person (possibly changing NIF), 
+--   and also updates the Employee record (JobTitle, etc.).
+--   If the new NIF differs from the old one, we update Person.NIF
+--   and fix both Employee.Person_NIF and any Contributor.Person_NIF
+--   (if that Person is also a Contributor).
+-- ================================================
 CREATE OR ALTER PROCEDURE dbo.sp_UpdateEmployee
-    @ID            INT,
-    @Name          VARCHAR(255),
+(
+    @EmployeeID    INT,
+    @NewNIF        VARCHAR(20),    -- New NIF for the Person
+    @Name          VARCHAR(255),   -- Person Name
     @DateOfBirth   DATE           = NULL,
     @Email         VARCHAR(255)   = NULL,
     @PhoneNumber   VARCHAR(50)    = NULL,
@@ -82,35 +91,92 @@ CREATE OR ALTER PROCEDURE dbo.sp_UpdateEmployee
     @Salary        DECIMAL(10,2),
     @HireDate      DATE,
     @RecordLabelID INT
+)
 AS
 BEGIN
     SET NOCOUNT ON;
+    BEGIN TRANSACTION;
+    BEGIN TRY
+        DECLARE @oldNIF VARCHAR(20);
 
-    IF @DateOfBirth IS NOT NULL AND @HireDate < @DateOfBirth
-    BEGIN
-        RAISERROR('Hire date cannot be earlier than date of birth.', 16, 1);
-        RETURN;
-    END
+        -- 1) Find the old Person_NIF for this Employee
+        SELECT 
+            @oldNIF = e.Person_NIF
+        FROM dbo.Employee AS e
+        WHERE e.EmployeeID = @EmployeeID;
 
-    UPDATE dbo.Person
-    SET
-        Name        = @Name,
-        DateOfBirth = @DateOfBirth,
-        Email       = @Email,
-        PhoneNumber = @PhoneNumber
-    WHERE NIF = (SELECT Person_NIF FROM dbo.Employee WHERE EmployeeID = @ID);
+        IF @oldNIF IS NULL
+        BEGIN
+            THROW 50030, 'Employee not found', 1;
+        END
 
-    UPDATE dbo.Employee
-    SET
-        JobTitle                  = @JobTitle,
-        Department                = @Department,
-        Salary                    = @Salary,
-        HireDate                  = @HireDate,
-        RecordLabel_RecordLabelID = @RecordLabelID
-    WHERE EmployeeID = @ID;
+        -- 2) If the NIF changed, update Person.NIF and fix any dependent FKs
+        IF @NewNIF IS NOT NULL AND @NewNIF <> @oldNIF
+        BEGIN
+            -- Make sure the new NIF is not already taken
+            IF EXISTS (SELECT 1 FROM dbo.Person WHERE NIF = @NewNIF)
+            BEGIN
+                THROW 51011, 'NIF already exists', 1;
+            END
 
-    IF @@ROWCOUNT = 0
-        RAISERROR('Employee with ID %d not found', 16, 1, @ID);
+            -- Update Person.PK from oldNIF to newNIF, and update other columns
+            UPDATE dbo.Person
+            SET
+                NIF         = @NewNIF,
+                Name        = @Name,
+                DateOfBirth = @DateOfBirth,
+                Email       = @Email,
+                PhoneNumber = @PhoneNumber
+            WHERE NIF = @oldNIF;
+
+            IF @@ROWCOUNT = 0
+                THROW 51010, 'Person not found', 1;
+
+            -- Update the Employee row to point to the new NIF
+            UPDATE dbo.Employee
+            SET Person_NIF = @NewNIF
+            WHERE EmployeeID = @EmployeeID;
+
+            -- If that same person was a Contributor, update its FK, too
+            UPDATE dbo.Contributor
+            SET Person_NIF = @NewNIF
+            WHERE Person_NIF = @oldNIF;
+        END
+        ELSE
+        BEGIN
+            -- 3) NIF did not change: simply update the Person’s other fields
+            UPDATE dbo.Person
+            SET
+                Name        = @Name,
+                DateOfBirth = @DateOfBirth,
+                Email       = @Email,
+                PhoneNumber = @PhoneNumber
+            WHERE NIF = @oldNIF;
+
+            IF @@ROWCOUNT = 0
+                THROW 51010, 'Person not found', 1;
+        END
+
+        -- 4) Now update the Employee’s own columns (JobTitle, etc.)
+        UPDATE dbo.Employee
+        SET
+            JobTitle                  = @JobTitle,
+            Department                = @Department,
+            Salary                    = @Salary,
+            HireDate                  = @HireDate,
+            RecordLabel_RecordLabelID = @RecordLabelID,
+            Person_NIF                = COALESCE(@NewNIF, @oldNIF)
+        WHERE EmployeeID = @EmployeeID;
+
+        IF @@ROWCOUNT = 0
+            THROW 50031, 'Employee not found during update', 1;
+
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        ROLLBACK TRANSACTION;
+        THROW;
+    END CATCH
 END
 GO
 

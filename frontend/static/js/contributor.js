@@ -3,6 +3,7 @@
 import {
   listContributors,
   getContributor,
+  getContributorDependencies,
   createContributor,
   updateContributor,
   deleteContributor
@@ -20,14 +21,14 @@ async function contributorInit() {
   console.log('[contributorInit] start');
 
   // Sections & controls
-  const listSection       = document.getElementById('contrib-list-section');
-  const detailsSection    = document.getElementById('contrib-details-section');
-  const modal             = document.getElementById('contrib-form-modal');
-  const form              = document.getElementById('contrib-form');
-  const addBtn            = document.getElementById('add-contrib-btn');
-  const cancelBtn         = document.getElementById('contrib-cancel-btn');
+  const listSection    = document.getElementById('contrib-list-section');
+  const detailsSection = document.getElementById('contrib-details-section');
+  const modal          = document.getElementById('contrib-form-modal');
+  const form           = document.getElementById('contrib-form');
+  const addBtn         = document.getElementById('add-contrib-btn');
+  const cancelBtn      = document.getElementById('contrib-cancel-btn');
 
-  // Conflict‐resolution modal elements:
+  // Conflict‐resolution modal elements (if defined in your HTML)
   const conflictModal     = document.getElementById('conflict-modal');
   const conflictNifSpan   = document.getElementById('conflict-nif');
   const existingNameSpan  = document.getElementById('existing-name');
@@ -69,7 +70,6 @@ async function contributorInit() {
         <td>${c.NIF}</td>
       </tr>
     `).join('');
-
     document.querySelectorAll('#contrib-list-table tbody tr')
       .forEach(row => row.onclick = () => showDetails(+row.dataset.id));
   }
@@ -119,7 +119,7 @@ async function contributorInit() {
     listSection.classList.add('hidden');
     detailsSection.classList.remove('hidden');
     modal.classList.add('hidden');
-    conflictModal.classList.add('hidden'); // ensure conflict modal is hidden
+    if (conflictModal) conflictModal.classList.add('hidden');
 
     let c;
     try {
@@ -143,7 +143,31 @@ async function contributorInit() {
 
     document.getElementById('edit-contrib-btn').onclick = () => openForm('Edit Contributor', c);
     document.getElementById('delete-contrib-btn').onclick = async () => {
-      if (!confirm(`Delete contributor "${c.Name}"?`)) return;
+      // 1) First, fetch dependency counts
+      let deps;
+      try {
+        deps = await getContributorDependencies(c.ContributorID);
+      } catch (err) {
+        console.error('[API] getContributorDependencies failed', err);
+        alert('Unable to verify dependent data; cannot delete at this time.');
+        return;
+      }
+
+      // 2) Build a user‐friendly message
+      const { CollaborationCount, SongCount } = deps;
+      let msg =
+        `You are about to delete contributor “${c.Name}” (ID ${c.ContributorID}).\n\n` +
+        `This will also remove:\n` +
+        `  • ${CollaborationCount} collaboration link${CollaborationCount === 1 ? '' : 's'}\n` +
+        `  • ${SongCount} song‐association${SongCount === 1 ? '' : 's'}\n\n` +
+        `Press OK to proceed or Cancel to abort.`;
+
+      if (!confirm(msg)) {
+        // User cancelled
+        return;
+      }
+
+      // 3) User confirmed → call DELETE
       try {
         await deleteContributor(c.ContributorID);
         await fetchAndRender();
@@ -160,7 +184,7 @@ async function contributorInit() {
     detailsSection.classList.add('hidden');
     listSection.classList.remove('hidden');
     modal.classList.add('hidden');
-    conflictModal.classList.add('hidden');
+    if (conflictModal) conflictModal.classList.add('hidden');
     renderTable(contributors);
   }
 
@@ -168,7 +192,7 @@ async function contributorInit() {
   function openForm(title, c = {}) {
     document.getElementById('contrib-modal-title').textContent = title;
     form.reset();
-    conflictModal.classList.add('hidden');
+    if (conflictModal) conflictModal.classList.add('hidden');
 
     // If editing, pre‐fill fields
     form.elements['ContributorID'].value = c.ContributorID || '';
