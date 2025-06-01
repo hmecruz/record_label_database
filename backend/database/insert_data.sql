@@ -184,26 +184,3 @@ INSERT INTO Employee (JobTitle, Department, Salary, HireDate, RecordLabel_Record
   ('Creative Director',   'A&R',       88000.00,'2023-06-01', 3, 'P005'),
   ('Producer-in-Chief',   'Production',99000.00,'2024-01-01', 4, 'P006'),
   ('Design Lead',         'Design',    80000.00,'2023-11-01', 5, 'P007');
-
-
--- (15) (Optional) FINAL CLEANUP — anything the triggers didn’t catch:
---      • Remove any song that somehow still has zero contributors  
---      • Remove any collaboration that somehow still has ≤1 contributor
--------------------------------------------------------------------------------
-DELETE S
-FROM dbo.Song AS S
-LEFT JOIN (
-    SELECT DISTINCT Song_SongID FROM dbo.Contributor_Song
-) AS cs ON cs.Song_SongID = S.SongID
-WHERE cs.Song_SongID IS NULL;
-
-DELETE C
-FROM dbo.Collaboration AS C
-LEFT JOIN (
-    SELECT Collaboration_CollaborationID,
-           COUNT(*) AS cnt
-    FROM dbo.Collaboration_Contributor
-    GROUP BY Collaboration_CollaborationID
-) AS cc ON cc.Collaboration_CollaborationID = C.CollaborationID
-WHERE cc.Collaboration_CollaborationID IS NULL
-   OR cc.cnt <= 1;
