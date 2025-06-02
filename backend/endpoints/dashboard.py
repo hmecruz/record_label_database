@@ -1,6 +1,9 @@
 from flask import Blueprint, jsonify, abort
 from config.database_config import DatabaseConfig
 import pyodbc
+from config.logger import get_logger
+logger = get_logger(__name__)
+
 
 dashboard_api = Blueprint(
     'dashboard_api',
@@ -25,6 +28,7 @@ def get_counts():
             "ContributorCount":   row.ContributorCount,
             "CollaborationCount": row.CollaborationCount
         }
+        logger.info(f"Dashboard counts: {data}")
         return jsonify(data), 200
     finally:
         conn.close()

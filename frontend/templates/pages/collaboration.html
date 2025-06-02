@@ -3,15 +3,16 @@
   <button id="add-collab-btn" class="btn-primary">+ Add Collaboration</button>
 </div>
 
+<!-- List -->
 <section id="collab-list-section">
   <h3>All Collaborations</h3>
   <div class="filter-row">
-    <input type="text"    id="filter-name"           placeholder="Filter by Name…" />
-    <input type="date"    id="filter-start"          placeholder="Filter by Start Date…" />
-    <input type="date"    id="filter-end"            placeholder="Filter by End Date…" />
-    <input type="text"    id="filter-song"           placeholder="Filter by Song Title…" />
-    <input type="text"    id="filter-labels"         placeholder="Filter by Record Label…" />
-    <input type="text"    id="filter-contributors"   placeholder="Filter by Contributor…" />
+    <input type="text"  id="filter-name"         placeholder="Filter by Name…" />
+    <input type="date"  id="filter-start"        placeholder="Filter by Start Date…" />
+    <input type="date"  id="filter-end"          placeholder="Filter by End Date…" />
+    <input type="text"  id="filter-song"         placeholder="Filter by Song…" />
+    <input type="text"  id="filter-labels"       placeholder="Filter by Record Label…" />
+    <input type="text"  id="filter-contributors" placeholder="Filter by Contributor…" />
   </div>
   <table id="collab-list-table" class="data-table">
     <thead>
@@ -30,16 +31,18 @@
   </table>
 </section>
 
+<!-- Details / Edit / Delete -->
 <section id="collab-details-section" class="hidden">
   <h3>Collaboration Details</h3>
   <div id="collab-details"></div>
   <div class="detail-actions">
-    <button id="edit-collab-btn"    class="btn-secondary">Edit</button>
-    <button id="delete-collab-btn"  class="btn-danger">Delete</button>
-    <button id="back-collab-list-btn" class="btn-light">Back to List</button>
+    <button id="edit-collab-btn"       class="btn-secondary">Edit</button>
+    <button id="delete-collab-btn"     class="btn-danger">Delete</button>
+    <button id="back-collab-list-btn"  class="btn-light">Back to List</button>
   </div>
 </section>
 
+<!-- Add/Edit Modal -->
 <div id="collab-form-modal" class="modal hidden">
   <div class="modal-content">
     <h3 id="collab-modal-title">Add Collaboration</h3>
@@ -59,15 +62,18 @@
         <input type="date" name="EndDate" />
       </label>
       <label>
-        Song Title:
-        <input type="text" name="SongTitle" />
+        Song:
+        <select name="SongID" id="song-dropdown">
+          <option value="" disabled selected>Select a song</option>
+          <!-- Populated by JS -->
+        </select>
       </label>
       <label>
         Record Labels (comma-separated names):
         <input type="text" name="RecordLabels" />
       </label>
       <label>
-        Contributors (comma-separated names):
+        Contributors (comma-separated Person NIFs):
         <input type="text" name="Contributors" />
       </label>
       <label>

@@ -155,6 +155,7 @@ OUTER APPLY (
 ) AS sw(Roles);
 GO
 
+
 -- ================================================================
 -- Collaborations View
 -- ================================================================
@@ -193,6 +194,7 @@ FROM dbo.Collaboration c
 LEFT JOIN dbo.Song s
   ON s.SongID = c.Song_SongID;
 GO
+
 
 -- ================================================================
 -- Dashboard View

@@ -1,8 +1,11 @@
-# backend/endpoints/collaborations.py
+# File: backend/endpoints/collaborations.py
 
 from flask import Blueprint, request, jsonify, abort
 from config.database_config import DatabaseConfig
 import pyodbc
+from config.logger import get_logger
+
+logger = get_logger(__name__)
 
 collab_api = Blueprint(
     'collab_api',
@@ -12,10 +15,9 @@ collab_api = Blueprint(
 
 def map_row_to_collab(row):
     """
-    Map a row from vw_Collaborations into a JSON-serializable dict.
-    Splits the comma-separated RecordLabels/Contributors into Python lists.
+    Map a row from vw_Collaborations into a JSON‐serializable dict.
+    Splits the comma‐separated RecordLabels/Contributors into Python lists.
     """
-    # pull the correct columns from your view
     raw_labels  = getattr(row, 'RecordLabels', '') or ''
     raw_contrib = getattr(row, 'Contributors', '')   or ''
 
@@ -36,13 +38,13 @@ def map_row_to_collab(row):
 
 @collab_api.route('', methods=['GET'])
 def list_collaborations():
-    # read optional filters
+    # Read optional filters from query string
     name        = request.args.get('name')
     start       = request.args.get('start')
     end         = request.args.get('end')
-    song        = request.args.get('song')
-    label       = request.args.get('labels')
-    contributor = request.args.get('contributors')
+    song        = request.args.get('song')       # will match against SongTitle in the view
+    label       = request.args.get('labels')     # a comma‐separated substring to match RecordLabels
+    contributor = request.args.get('contributors')# a comma‐separated substring to match Contributors
 
     conn = DatabaseConfig.get_connection()
     try:
@@ -54,7 +56,12 @@ def list_collaborations():
         )
         rows = cursor.fetchall()
         results = [map_row_to_collab(r) for r in rows]
+        logger.info(f"sp_GetCollaborations returned {len(results)} rows")
         return jsonify(results), 200
+
+    except pyodbc.Error as e:
+        logger.exception("Error in list_collaborations")
+        abort(500, description=str(e))
     finally:
         conn.close()
 
@@ -84,9 +91,9 @@ def create_collaboration():
     start      = data["StartDate"]
     end        = data.get("EndDate")
     desc       = data.get("Description")
-    song_title = data.get("SongTitle")
-    labels     = data.get("RecordLabels")   # comma-separated string
-    contribs   = data.get("Contributors")   # comma-separated string
+    song_id    = data.get("SongID")            # integer or None
+    labels     = data.get("RecordLabels")      # comma-separated RecordLabel names (string) or None
+    contribs   = data.get("Contributors")      # comma-separated Person_NIFs (string) or None
 
     conn = DatabaseConfig.get_connection()
     try:
@@ -95,11 +102,13 @@ def create_collaboration():
             "DECLARE @NewID INT; "
             "EXEC dbo.sp_CreateCollaboration "
             "@CollaborationName=?, @StartDate=?, @EndDate=?, @Description=?, "
-            "@SongTitle=?, @RecordLabels=?, @Contributors=?, @NewID=@NewID OUTPUT; "
+            "@SongID=?, @RecordLabels=?, @Contributors=?, @NewID=@NewID OUTPUT; "
             "SELECT @NewID AS NewID;",
-            name, start, end, desc, song_title, labels, contribs
+            name, start, end, desc,
+            song_id, labels, contribs
         )
-        new_id = result.fetchone().NewID
+        row = result.fetchone()
+        new_id = row.NewID if row else None
         conn.commit()
     except pyodbc.Error as e:
         conn.rollback()
@@ -107,6 +116,8 @@ def create_collaboration():
     finally:
         conn.close()
 
+    if not new_id:
+        abort(500, description="Could not create collaboration.")
     return get_collaboration(new_id)
 
 @collab_api.route('/<int:cid>', methods=['PUT'])
@@ -119,7 +130,7 @@ def update_collaboration(cid):
     start      = data["StartDate"]
     end        = data.get("EndDate")
     desc       = data.get("Description")
-    song_title = data.get("SongTitle")
+    song_id    = data.get("SongID")          # integer or None
     labels     = data.get("RecordLabels")
     contribs   = data.get("Contributors")
 
@@ -130,15 +141,18 @@ def update_collaboration(cid):
             cursor.execute(
                 "EXEC dbo.sp_UpdateCollaboration "
                 "@ID=?, @CollaborationName=?, @StartDate=?, @EndDate=?, @Description=?, "
-                "@SongTitle=?, @RecordLabels=?, @Contributors=?",
-                cid, name, start, end, desc, song_title, labels, contribs
+                "@SongID=?, @RecordLabels=?, @Contributors=?",
+                cid, name, start, end, desc,
+                song_id, labels, contribs
             )
             conn.commit()
         except pyodbc.ProgrammingError as pe:
-            # your SP throws 50030 if not found
             if '50030' in str(pe):
                 abort(404, description=f"Collaboration with ID {cid} not found")
             raise
+    except pyodbc.Error as e:
+        conn.rollback()
+        abort(500, description=str(e))
     finally:
         conn.close()
 
@@ -156,7 +170,6 @@ def delete_collaboration(cid):
             )
             conn.commit()
         except pyodbc.ProgrammingError as pe:
-            # your SP throws 50031 if not found
             if '50031' in str(pe):
                 abort(404, description=f"Collaboration with ID {cid} not found")
             raise

@@ -1,4 +1,4 @@
-// frontend/static/js/endpoints/collaboration_api.js
+// File: frontend/static/js/endpoints/collaboration_api.js
 
 const BASE = ''; // same-origin
 
@@ -24,8 +24,8 @@ export async function getCollaboration(id) {
 /**
  * Create a new collaboration.
  * Expects an object with keys:
- *   CollaborationName, StartDate, EndDate, Description,
- *   SongTitle, RecordLabels, Contributors
+ *   CollaborationName, StartDate, EndDate,
+ *   Description, SongID, RecordLabels, Contributors
  */
 export async function createCollaboration(data) {
   const res = await fetch(`${BASE}/api/collaborations`, {
@@ -54,7 +54,7 @@ export async function updateCollaboration(id, data) {
 /** Delete a collaboration by ID */
 export async function deleteCollaboration(id) {
   const res = await fetch(`${BASE}/api/collaborations/${id}`, {
-    method: 'DELETE'
+    method: 'DELETE',
   });
   if (!res.ok) throw res;
   // 204 No Content
