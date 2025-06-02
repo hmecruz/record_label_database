@@ -20,7 +20,7 @@ def get_counts():
         row = cursor.fetchone()
         if not row:
             abort(500, description="Unexpected: no row from sp_GetDashboardCounts")
-        # Build a dict from the view columns
+        
         data = {
             "RecordLabelCount":   row.RecordLabelCount,
             "EmployeeCount":      row.EmployeeCount,

@@ -1,5 +1,3 @@
--- Create triggers
-
 -- =============================================================================
 -- When a Contributor is deleted, also delete its linked Song if it has no contributors.
 -- =============================================================================

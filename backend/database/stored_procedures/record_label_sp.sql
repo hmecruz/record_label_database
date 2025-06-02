@@ -125,8 +125,6 @@ BEGIN
     BEGIN
         THROW 50050, 'RecordLabel not found', 1;
     END
-
-    -- We assume you have this helper view that
     -- counts employees & collaborations per label:
     --    vw_RecordLabelDependencies
     -- Columns: RecordLabelID, EmployeeCount, CollaborationCount

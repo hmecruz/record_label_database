@@ -1,6 +1,4 @@
 -- ================================================
--- File: insert_data.sql
--- 
 --  1) Insert RecordLabel rows
 --  2) Insert Person rows
 --  3) Insert Song rows (including “lonely” test‐songs)

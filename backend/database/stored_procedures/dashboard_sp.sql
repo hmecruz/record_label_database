@@ -1,4 +1,6 @@
+-- ====================================================
 -- GetDashboardCounts: Returns counts for various entities in the dashboard
+-- ====================================================
 CREATE OR ALTER PROCEDURE dbo.sp_GetDashboardCounts
 AS
 BEGIN

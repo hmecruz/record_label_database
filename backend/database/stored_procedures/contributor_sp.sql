@@ -374,8 +374,6 @@ BEGIN
             BEGIN
                 IF @r = 'Artist'
                 BEGIN
-                    -- If you're using the Artist table, and you need a StageName,
-                    -- you can supply a default or require it in the JSON. For now:
                     INSERT dbo.Artist 
                       (Contributor_ContributorID, StageName)
                     VALUES 

@@ -1,5 +1,3 @@
-# File: backend/endpoints/collaborations.py
-
 from flask import Blueprint, request, jsonify, abort
 from config.database_config import DatabaseConfig
 import pyodbc

@@ -1,5 +1,3 @@
-# backend/endpoints/songs.py
-
 from flask import Blueprint, request, jsonify, abort
 from config.database_config import DatabaseConfig
 import pyodbc
@@ -211,9 +209,6 @@ def get_song_dependencies(song_id):
         }), 200
 
     except pyodbc.ProgrammingError as pe:
-        # If the stored proc threw “does not exist” (song not found),
-        # we map that to a 404
-        # (Assumes sp_GetSongDependencies would throw if SongID is invalid)
         abort(404, description=f"Song with ID {song_id} not found")
     finally:
         conn.close()

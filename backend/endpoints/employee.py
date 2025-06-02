@@ -1,5 +1,3 @@
-# backend/endpoints/employees.py
-
 from flask import Blueprint, request, jsonify, abort
 from config.database_config import DatabaseConfig
 import pyodbc
@@ -15,7 +13,7 @@ employee_api = Blueprint(
 
 def map_row_to_employee(row):
     """
-    Convert a row from vw_Employees into a JSON‐serializable dict.
+    Convert a row from vw_Employees into a JSON-serializable dict.
     Order: EmployeeID, NIF, Name, DateOfBirth, JobTitle, Department,
            Salary, HireDate, Email, PhoneNumber, RecordLabelID, RecordLabelName
     """
@@ -42,7 +40,6 @@ def list_employees():
     department = request.args.get('department')
     email      = request.args.get('email')
     phone      = request.args.get('phone')
-    # (We do not send a “label” filter to the SP; that can be applied client‐side if needed.)
 
     conn = DatabaseConfig.get_connection()
     try:
@@ -229,7 +226,6 @@ def create_employee():
                 "Email":        p.Email,
                 "PhoneNumber":  p.PhoneNumber,
                 # note: EmployeeID is not returned by sp_GetPersonByNIF; 
-                # if you want to return existing “EmployeeID” you could issue a separate query.
                 "EmployeeID":   None
             }
         finally:

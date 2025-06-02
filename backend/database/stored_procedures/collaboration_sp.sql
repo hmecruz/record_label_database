@@ -1,5 +1,3 @@
--- File: database/stored_procedures/collaboration_sp.sql
-
 -- ================================================
 -- sp_GetCollaborations: Fetch collaborations with optional filters
 -- ================================================
@@ -80,9 +78,6 @@ BEGIN
             FETCH NEXT FROM lbl_cur INTO @lbl;
             WHILE @@FETCH_STATUS = 0
             BEGIN
-                -- We need two different FKs in RecordLabel_Collaboration.
-                -- Convention: use the newly‐created @NewID for both sides if you want a single link;
-                -- otherwise, adapt to your specific logic. Here we assume both sides equal @NewID for a simple link:
                 INSERT INTO dbo.RecordLabel_Collaboration
                     (RecordLabel_RecordLabelID1, RecordLabel_RecordLabelID2, Collaboration_CollaborationID)
                 SELECT rl.RecordLabelID, rl.RecordLabelID, @NewID
