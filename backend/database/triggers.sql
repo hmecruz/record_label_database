@@ -38,3 +38,31 @@ BEGIN
         HAVING COUNT(cc.Contributor_ContributorID) < 2
     );
 END;
+GO
+
+-- =============================================================================
+-- Delete Collaboration if it has fewer than 2 distinct Record Labels
+-- =============================================================================
+CREATE OR ALTER TRIGGER trg_DeleteCollaborationWithFewLabels
+ON RecordLabel_Collaboration
+AFTER INSERT, DELETE
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Count DISTINCT labels by unpivoting both columns
+    DELETE FROM Collaboration
+    WHERE CollaborationID IN (
+        SELECT rc.Collaboration_CollaborationID
+        FROM (
+            SELECT Collaboration_CollaborationID, RecordLabel_RecordLabelID1 AS LabelID
+            FROM RecordLabel_Collaboration
+            UNION
+            SELECT Collaboration_CollaborationID, RecordLabel_RecordLabelID2 AS LabelID
+            FROM RecordLabel_Collaboration
+        ) AS rc
+        GROUP BY rc.Collaboration_CollaborationID
+        HAVING COUNT(DISTINCT rc.LabelID) < 2
+    );
+END;
+GO

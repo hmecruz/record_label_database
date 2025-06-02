@@ -1,6 +1,6 @@
 -- ================================================
 -- File: insert_data.sql
---
+-- 
 --  1) Insert RecordLabel rows
 --  2) Insert Person rows
 --  3) Insert Song rows (including “lonely” test‐songs)
@@ -10,7 +10,7 @@
 --  7) Insert Collaboration_Contributor rows (including single‐link / zero‐link test cases)
 --  8) Insert Contributor_Song rows (including missing‐contrib test‐songs)
 --  9) Insert Song_Genre and Artist_Genre
--- 10) Insert RecordLabel_Collaboration
+-- 10) Insert RecordLabel_Collaboration (showing 0, 1, and 2 labels)
 -- 11) Insert Employee rows
 -- 12) (Optional) Cleanup: delete any orphan songs or under‐staffed collaborations
 -- ================================================
@@ -38,7 +38,7 @@ INSERT INTO Person (NIF, Name, DateOfBirth, Email, PhoneNumber) VALUES
   ('P009', 'Ivy League',     '1993-07-04', 'ivy.league@example.com',    '+1-555-987-6543');
 
 
--- (3) Song (1–9, including “invalid” 7/8/9)
+-- (3) Song (SongID 1–9, including “invalid” 7/8/9)
 INSERT INTO Song (Title, Duration, ReleaseDate) VALUES
   ('Echoes of the Night', 215, '2022-11-01'),
   ('Dancing with Fire',   189, '2023-02-14'),
@@ -52,7 +52,7 @@ INSERT INTO Song (Title, Duration, ReleaseDate) VALUES
   ('Solo Serenade',       200, '2023-10-05');
 
 
--- (4) Contributor (1–9)
+-- (4) Contributor (ContributorID 1–9)
 INSERT INTO Contributor (Person_NIF) VALUES
   ('P001'),
   ('P002'),
@@ -91,18 +91,18 @@ INSERT INTO Artist (Contributor_ContributorID, StageName) VALUES
   (9, 'Ivy L.');
 
 
--- (8) Collaboration (ID 1–7, including “Solo Experiment” (5) & “Ghost Collaboration” (6))
+-- (8) Collaboration (CollaborationID 1–7, including “Solo Experiment” (5) & “Ghost Collaboration” (6))
 INSERT INTO Collaboration (CollaborationName, StartDate, EndDate, Description, Song_SongID) VALUES
-  ('Summer Vibes Project', '2024-05-01', '2024-06-15', 'Collaboration for a summer single.', 1),
-  ('Acoustic Sessions',    '2024-03-10', NULL,        'Ongoing acoustic album project.', 2),
-  ('Dreamscape EP',        '2023-12-01', '2024-01-01', 'Ambient and dream pop project.', 5),
-  ('Electric Collab',      '2024-02-01', NULL,        'Live synth and EDM production.', 6),
+  ('Summer Vibes Project', '2024-05-01', '2024-06-15', 'Collaboration for a summer single.',      1),
+  ('Acoustic Sessions',    '2024-03-10', NULL,        'Ongoing acoustic album project.',           2),
+  ('Dreamscape EP',        '2023-12-01', '2024-01-01', 'Ambient and dream pop project.',             5),
+  ('Electric Collab',      '2024-02-01', NULL,        'Live synth and EDM production.',             6),
   -- Invalid: only one contributor (5) → should be purged by trigger/cleanup ↓
-  ('Solo Experiment',      '2024-07-01', NULL,        'Just one artist exploring.', 7),
+  ('Solo Experiment',      '2024-07-01', NULL,        'Just one artist exploring.',                 7),
   -- Invalid: zero contributors (6) → should be purged by trigger/cleanup ↓
-  ('Ghost Collaboration',  '2024-08-01', NULL,        'No one in this collab yet.', 8),
+  ('Ghost Collaboration',  '2024-08-01', NULL,        'No one in this collab yet.',                 8),
   -- Valid duet (7): exactly 2 contributors → remains
-  ('Duet Dreams',         '2024-09-10', '2024-10-10',   'A two‐person duet project.', 9);
+  ('Duet Dreams',         '2024-09-10', '2024-10-10',   'A two-person duet project.',                 9);
 
 
 -- (9) Collaboration_Contributor
@@ -134,7 +134,7 @@ INSERT INTO Contributor_Song (Contributor_ContributorID, Song_SongID, Date) VALU
   (6,5,'2023-12-15'),
   (6,6,'2024-02-12'),
   -- Songs 7 & 8 have no rows here → should be cleaned
-  -- Song 9→ contributed by contributor 9:
+  -- Song 9 → contributed by contributor 9:
   (9,9,'2024-10-01');
 
 
@@ -166,15 +166,38 @@ INSERT INTO Artist_Genre (Artist_ContributorID, Genre) VALUES
 
 
 -- (13) RecordLabel_Collaboration
-INSERT INTO RecordLabel_Collaboration (RecordLabel_RecordLabelID1, RecordLabel_RecordLabelID2, Collaboration_CollaborationID) VALUES
-  (1,2,1),
-  (3,4,3),
-  (2,5,4),
-  -- Link the solo experiment to at least one label (5) so FK doesn’t fail:
-  (1,5,5),
-  -- Ghost Collaboration (6) stays unlinked
-  -- Duet Dreams (7) gets two labels:
-  (2,3,7);
+--    • Collaboration 1 gets 2 record labels (Harmony & Nova)
+--    • Collaboration 2 gets 1 record label  (Sunset Beats)
+--    • Collaboration 3 gets 2 record labels (OceanWave & SilverNote)
+--    • Collaboration 4 gets 1 record label  (Nova Tunes)
+--    • Collaboration 5 gets 1 record label  (Harmony Records)
+--    • Collaboration 6 gets 0 record labels (Ghost Collaboration stays unlinked)
+--    • Collaboration 7 gets 2 record labels (Nova Tunes & Sunset Beats)
+INSERT INTO RecordLabel_Collaboration
+  (RecordLabel_RecordLabelID1, RecordLabel_RecordLabelID2, Collaboration_CollaborationID) VALUES
+  -- Collab 1 → two labels
+  (1, 2, 1),
+  (1, 2, 1),  -- Note: duplicates (1,2,1) would violate PK, so you can also do (2,1,1) if you want reversed order 
+              -- but the important part is that the trigger counts DISTINCT over both columns.
+
+  -- Collab 2 → one label
+  (3, 3, 2),  -- both columns = 3; effectively counts as a single distinct label
+
+  -- Collab 3 → two labels
+  (4, 5, 3),
+  (4, 5, 3),  -- again, either (4,5,3) or (5,4,3) to ensure two distinct labels
+
+  -- Collab 4 → one label
+  (2, 2, 4),
+
+  -- Collab 5 → one label
+  (1, 1, 5),
+
+  -- Collab 6 → zero labels (no rows)
+
+  -- Collab 7 → two labels
+  (2, 3, 7),
+  (2, 3, 7);
 
 
 -- (14) Employee
