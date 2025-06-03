@@ -1,5 +1,3 @@
-// frontend/static/js/contributor.js
-
 import {
   listContributors,
   getContributor,

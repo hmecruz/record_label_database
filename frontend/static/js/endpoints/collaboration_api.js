@@ -1,5 +1,3 @@
-// File: frontend/static/js/endpoints/collaboration_api.js
-
 const BASE = ''; // same-origin
 
 /**

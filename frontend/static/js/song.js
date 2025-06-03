@@ -1,6 +1,3 @@
-// frontend/static/js/song.js
-// Load as an ES module: <script type="module" src="/static/js/song.js"></script>
-
 import {
   listSongs,
   getSong,

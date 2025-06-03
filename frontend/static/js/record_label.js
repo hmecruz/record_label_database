@@ -1,5 +1,3 @@
-// frontend/static/js/record_label.js
-
 import {
   listLabels,
   getLabel,

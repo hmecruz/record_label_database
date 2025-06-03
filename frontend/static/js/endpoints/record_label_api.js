@@ -1,5 +1,3 @@
-// frontend/static/js/endpoints/record_label_api.js
-
 const BASE = ''; // same-origin
 
 /**

@@ -1,5 +1,3 @@
-// frontend/static/js/endpoints/contributor_api.js
-
 const BASE = ''; // same-origin
 
 /**

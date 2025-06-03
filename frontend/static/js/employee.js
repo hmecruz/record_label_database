@@ -1,5 +1,3 @@
-// frontend/static/js/employee.js
-
 import {
   listEmployees,
   getEmployee,
