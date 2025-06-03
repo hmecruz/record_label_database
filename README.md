@@ -1,8 +1,21 @@
 # Record Labels Database
 
+### Table of Contents
+- [Overview](#overview)
+- [Features](#features)
+- [Technologies Used](#technologies-used)
+- [File Structure](#file-structure)
+- [Getting Started](#getting-started)
+- [.env-sample](#env-sample)
+- [Database Management](#database-management)
+- [Frontend Overview](#frontend-overview)
+- [Additional Notes](#additional-notes)
+- [License](#license)
+- [Acknowledgements](#acknowledgements)
+
 ## Overview
 
-The Record Labels Database project is a full-stack web application designed to manage and visualize music-related data. The backend is powered by Flask and a PostgreSQL database, while the frontend is developed using HTML, CSS, and JavaScript. The project also includes Docker for containerization and easy deployment.
+The Record Labels Database project is a full-stack web application designed to manage and visualize music-related data. The backend is powered by Flask and a SQL database, while the frontend is developed using HTML, CSS, and JavaScript. The project also includes Docker for containerization and easy deployment.
 
 ## Features
 
@@ -169,6 +182,58 @@ This script calls endpoints defined in `db_admin_routes.py`. Note that:
 -   **Triggers**: `triggers.sql`
 -   **Drop All Tables**: `drop_all_tables.sql`
 
+## Frontend Overview
+
+The frontend of this project is built entirely using **HTML**, **CSS**, and **JavaScript**, without any frameworks or libraries like React or Vue. It follows a clean **separation of concerns** for better maintainability and collaboration.
+
+---
+
+### HTML Templates
+
+- **Location:** `frontend/templates/pages/`
+- Each HTML file (e.g., `record_label.html`, `employee.html`) corresponds to a **core data entity**.
+- These templates define:
+  - Page structure
+  - Filters
+  - Tables
+  - Modals
+
+---
+
+### CSS Files
+
+- **Location:** `frontend/static/css/`
+- Each page has its own stylesheet.
+- Provides:
+  - Consistent layout
+  - Visual formatting across the application
+
+---
+
+### JavaScript Logic
+
+JavaScript is split into two main categories:
+
+#### 1. **API Interaction**
+- **Location:** `frontend/static/js/endpoints/*.js`
+- Each file handles API logic for a specific page.
+- Example: `record_label_api.js` manages HTTP requests for record label operations.
+
+#### 2. **DOM & UI Logic**
+- **Location:** `frontend/static/js/*.js`
+- Responsibilities:
+  - DOM manipulation
+  - Event binding
+  - Modal logic
+  - Calling API methods
+
+---
+
+### Design Philosophy
+- Modular and page-specific structure
+- Promotes **readability** and **maintainability**
+
+
 ## Additional Notes
 
 -   The `database_images/` folder includes visual diagrams: DER, MR, and a database diagram generated with SSMS 19
@@ -178,8 +243,3 @@ This script calls endpoints defined in `db_admin_routes.py`. Note that:
 ## License
 
 This project is for academic purposes. Feel free to fork and extend it.
-
-## Acknowledgements
-
-- Developed using Flask, Docker, SQL, and SSMS 19
-- Frontend crafted with vanilla HTML/CSS/JS
